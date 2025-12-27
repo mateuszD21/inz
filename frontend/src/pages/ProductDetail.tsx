@@ -1,0 +1,298 @@
+import { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { MapPin, Heart, Share2, ChevronLeft, ChevronRight, Phone, Mail, MessageCircle, Clock, Shield } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { productApi } from '@/services/api';
+import { Product } from '@/types';
+
+export function ProductDetail() {
+  const { id } = useParams<{ id: string }>();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  useEffect(() => {
+    if (id) {
+      fetchProduct(parseInt(id));
+    }
+  }, [id]);
+
+  const fetchProduct = async (productId: number) => {
+    try {
+      const response = await productApi.getById(productId);
+      setProduct(response.data);
+    } catch (error) {
+      console.error('Błąd pobierania produktu:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const nextImage = () => {
+    if (product && product.images.length > 0) {
+      setCurrentImageIndex((prev) => 
+        prev === product.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  const prevImage = () => {
+    if (product && product.images.length > 0) {
+      setCurrentImageIndex((prev) => 
+        prev === 0 ? product.images.length - 1 : prev - 1
+      );
+    }
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: product?.title,
+        text: product?.description,
+        url: window.location.href,
+      });
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      alert('Link skopiowany do schowka!');
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pl-PL', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl text-gray-600">Ładowanie...</p>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <p className="text-xl text-gray-600 mb-4">Produkt nie został znaleziony</p>
+        <Link to="/">
+          <Button>Powrót do strony głównej</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Breadcrumb */}
+        <div className="mb-6">
+          <Link to="/" className="text-blue-600 hover:text-blue-700">
+            Strona główna
+          </Link>
+          <span className="mx-2 text-gray-400">/</span>
+          <span className="text-gray-600">{product.category}</span>
+          <span className="mx-2 text-gray-400">/</span>
+          <span className="text-gray-900">{product.title}</span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Images */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              {/* Main Image */}
+              <div className="relative aspect-[4/3] bg-gray-100">
+                <img
+                  src={product.images[currentImageIndex] || 'https://via.placeholder.com/800x600'}
+                  alt={product.title}
+                  className="w-full h-full object-contain"
+                />
+                
+                {/* Navigation Arrows */}
+                {product.images.length > 1 && (
+                  <>
+                    <button
+                      onClick={prevImage}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-2 rounded-full shadow-lg transition"
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </button>
+                    <button
+                      onClick={nextImage}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-2 rounded-full shadow-lg transition"
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </button>
+                  </>
+                )}
+
+                {/* Image Counter */}
+                {product.images.length > 1 && (
+                  <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
+                    {currentImageIndex + 1} / {product.images.length}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <button
+                    onClick={() => setIsFavorite(!isFavorite)}
+                    className="bg-white hover:bg-gray-50 p-2 rounded-full shadow-lg transition"
+                  >
+                    <Heart
+                      className={`h-6 w-6 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
+                    />
+                  </button>
+                  <button
+                    onClick={handleShare}
+                    className="bg-white hover:bg-gray-50 p-2 rounded-full shadow-lg transition"
+                  >
+                    <Share2 className="h-6 w-6 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Thumbnail Gallery */}
+              {product.images.length > 1 && (
+                <div className="p-4 flex gap-2 overflow-x-auto">
+                  {product.images.map((image, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentImageIndex(index)}
+                      className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition ${
+                        index === currentImageIndex
+                          ? 'border-blue-600'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <img
+                        src={image}
+                        alt={`${product.title} - ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Opis</h2>
+              <p className="text-gray-700 whitespace-pre-line leading-relaxed">
+                {product.description}
+              </p>
+            </div>
+
+            {/* Product Details */}
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Szczegóły</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-gray-600 text-sm">Kategoria</p>
+                  <p className="font-semibold text-gray-900">{product.category}</p>
+                </div>
+                <div>
+                  <p className="text-gray-600 text-sm">Stan</p>
+                  <p className="font-semibold text-gray-900">{product.condition}</p>
+                </div>
+                <div>
+                  <p className="text-gray-600 text-sm">Lokalizacja</p>
+                  <p className="font-semibold text-gray-900 flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    {product.location}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-600 text-sm">Data dodania</p>
+                  <p className="font-semibold text-gray-900 flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    {formatDate(product.createdAt)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Purchase Info */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
+              {/* Price */}
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 mb-1">Cena</p>
+                <p className="text-4xl font-bold text-blue-600">{product.price} zł</p>
+              </div>
+
+              {/* Seller Info */}
+              <div className="border-t pt-6 mb-6">
+                <h3 className="font-semibold text-gray-900 mb-3">Sprzedający</h3>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                    {product.user.avatar ? (
+                      <img
+                        src={product.user.avatar}
+                        alt={product.user.name}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xl font-bold text-gray-600">
+                        {product.user.name.charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{product.user.name}</p>
+                    <p className="text-sm text-gray-600">Aktywny sprzedawca</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Buttons */}
+              <div className="space-y-3">
+                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6">
+                  <MessageCircle className="mr-2 h-5 w-5" />
+                  Wyślij wiadomość
+                </Button>
+                
+                {product.user.phone && (
+                  <Button variant="outline" className="w-full text-lg py-6">
+                    <Phone className="mr-2 h-5 w-5" />
+                    Zadzwoń
+                  </Button>
+                )}
+                
+                {product.user.email && (
+                  <Button variant="outline" className="w-full text-lg py-6">
+                    <Mail className="mr-2 h-5 w-5" />
+                    Email
+                  </Button>
+                )}
+              </div>
+
+              {/* Safety Tips */}
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-blue-900 text-sm mb-1">
+                      Bezpieczne transakcje
+                    </p>
+                    <ul className="text-xs text-blue-800 space-y-1">
+                      <li>• Spotkaj się w bezpiecznym miejscu</li>
+                      <li>• Sprawdź produkt przed zakupem</li>
+                      <li>• Nie wysyłaj pieniędzy z góry</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

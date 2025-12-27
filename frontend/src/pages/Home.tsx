@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ui/ProductCard';
@@ -9,16 +9,19 @@ import { Product } from '@/types';
 export function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [locationQuery, setLocationQuery] = useState('');
+  const navigate = useNavigate();
 
   const categories = [
-    { name: "Elektronika", icon: "📱", count: 0 },
-    { name: "Moda", icon: "👕", count: 0 },
-    { name: "Dom i Ogród", icon: "🏡", count: 0 },
-    { name: "Sport", icon: "⚽", count: 0 },
-    { name: "Książki", icon: "📚", count: 0 },
-    { name: "Zabawki", icon: "🧸", count: 0 },
-    { name: "Motoryzacja", icon: "🚗", count: 0 },
-    { name: "Zwierzęta", icon: "🐾", count: 0 }
+    { name: "Elektronika", icon: "📱" },
+    { name: "Moda", icon: "👕" },
+    { name: "Dom i Ogród", icon: "🏡" },
+    { name: "Sport", icon: "⚽" },
+    { name: "Książki", icon: "📚" },
+    { name: "Zabawki", icon: "🧸" },
+    { name: "Motoryzacja", icon: "🚗" },
+    { name: "Zwierzęta", icon: "🐾" }
   ];
 
   useEffect(() => {
@@ -28,7 +31,7 @@ export function Home() {
   const fetchProducts = async () => {
     try {
       const response = await productApi.getAll();
-      setProducts(response.data);
+      setProducts(response.data.slice(0, 6)); // Pokaż tylko 6 na stronie głównej
     } catch (error) {
       console.error('Błąd pobierania produktów:', error);
     } finally {
@@ -36,9 +39,20 @@ export function Home() {
     }
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('q', searchQuery);
+    if (locationQuery) params.set('location', locationQuery);
+    navigate(`/produkty?${params.toString()}`);
+  };
+
+  const handleCategoryClick = (categoryName: string) => {
+    navigate(`/produkty?category=${encodeURIComponent(categoryName)}`);
+  };
+
   const calculateDistance = (lat?: number, lon?: number) => {
     if (!lat || !lon) return 'Brak lokalizacji';
-    // Przykładowe obliczenie - możesz użyć prawdziwej lokalizacji użytkownika
     const distance = Math.floor(Math.random() * 10) + 1;
     return `${distance} km`;
   };
@@ -57,12 +71,14 @@ export function Home() {
             </p>
 
             {/* Search Bar */}
-            <div className="bg-white rounded-lg p-2 flex flex-col md:flex-row gap-2 shadow-xl">
+            <form onSubmit={handleSearch} className="bg-white rounded-lg p-2 flex flex-col md:flex-row gap-2 shadow-xl">
               <div className="flex-1 flex items-center gap-2 px-3 bg-gray-50 rounded">
                 <Search className="h-5 w-5 text-gray-400" />
                 <input 
                   type="text" 
                   placeholder="Czego szukasz?" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="flex-1 bg-transparent border-none outline-none py-3 text-gray-900"
                 />
               </div>
@@ -71,13 +87,15 @@ export function Home() {
                 <input 
                   type="text" 
                   placeholder="Twoja lokalizacja" 
+                  value={locationQuery}
+                  onChange={(e) => setLocationQuery(e.target.value)}
                   className="flex-1 bg-transparent border-none outline-none py-3 text-gray-900"
                 />
               </div>
-              <Button className="bg-blue-600 hover:bg-blue-700 px-8 py-3">
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-700 px-8 py-3">
                 Szukaj
               </Button>
-            </div>
+            </form>
           </div>
         </div>
       </section>
@@ -90,6 +108,7 @@ export function Home() {
             {categories.map((category, index) => (
               <button 
                 key={index}
+                onClick={() => handleCategoryClick(category.name)}
                 className="flex flex-col items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-blue-50 hover:shadow-md transition group"
               >
                 <span className="text-4xl">{category.icon}</span>
