@@ -19,8 +19,11 @@ export function AddProduct() {
     category: '',
     condition: '',
     location: '',
-    images: [''],
+    images: [] as string[],
   });
+
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const categories = [
     'Elektronika',
@@ -62,21 +65,51 @@ export function AddProduct() {
     setFormData({ ...formData, images: newImages });
   };
 
-  const addImageField = () => {
-    if (formData.images.length < 10) {
-      setFormData({
-        ...formData,
-        images: [...formData.images, ''],
-      });
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length + imageFiles.length > 10) {
+      setError('Możesz dodać maksymalnie 10 zdjęć');
+      return;
     }
+    setImageFiles([...imageFiles, ...files]);
   };
 
-  const removeImageField = (index: number) => {
-    const newImages = formData.images.filter((_, i) => i !== index);
-    setFormData({
-      ...formData,
-      images: newImages.length > 0 ? newImages : [''],
-    });
+  const removeFile = (index: number) => {
+    setImageFiles(imageFiles.filter((_, i) => i !== index));
+  };
+
+  const uploadImages = async () => {
+    if (imageFiles.length === 0) return [];
+
+    setUploadingImages(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const file of imageFiles) {
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch('http://localhost:3000/api/upload/image', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        });
+
+        if (!response.ok) throw new Error('Błąd uploadu');
+
+        const data = await response.json();
+        uploadedUrls.push(`http://localhost:3000${data.url}`);
+      }
+
+      return uploadedUrls;
+    } catch (error) {
+      console.error('Błąd uploadu zdjęć:', error);
+      throw error;
+    } finally {
+      setUploadingImages(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,27 +133,44 @@ export function AddProduct() {
       return;
     }
 
+    console.log('=== SUBMITTING PRODUCT ===');
+    console.log('Form data:', formData);
+    console.log('Image files:', imageFiles);
+    console.log('Token:', localStorage.getItem('token'));
+
     setLoading(true);
 
     try {
-      const filteredImages = formData.images.filter(img => img.trim() !== '');
+      // Upload zdjęć jeśli są
+      let uploadedImageUrls: string[] = [];
+      if (imageFiles.length > 0) {
+        console.log('Uploading images...');
+        uploadedImageUrls = await uploadImages();
+        console.log('Uploaded URLs:', uploadedImageUrls);
+      }
       
-      const response = await productApi.create({
+      const productData = {
         title: formData.title,
         description: formData.description,
         price: parseFloat(formData.price),
         category: formData.category,
         condition: formData.condition,
         location: formData.location,
-        images: filteredImages.length > 0 ? filteredImages : [],
-        userId: user?.id,
-      });
+        images: uploadedImageUrls,
+      };
+
+      console.log('Sending product data:', productData);
+      
+      const response = await productApi.create(productData);
+      console.log('Response:', response);
 
       setSuccess('Ogłoszenie zostało dodane!');
       setTimeout(() => {
         navigate(`/produkt/${response.data.id}`);
       }, 1500);
     } catch (err: any) {
+      console.error('ERROR:', err);
+      console.error('Response:', err.response);
       setError(err.response?.data?.error || 'Błąd dodawania ogłoszenia');
     } finally {
       setLoading(false);
@@ -315,62 +365,55 @@ export function AddProduct() {
             {/* Zdjęcia */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Zdjęcia (URL) - opcjonalnie
+                Zdjęcia produktu
               </label>
               <p className="text-xs text-gray-500 mb-3">
-                Dodaj linki do zdjęć swojego produktu. Możesz użyć serwisów takich jak Unsplash, Imgur, itp.
+                Dodaj zdjęcia z komputera. Możesz dodać maksymalnie 10 zdjęć (max 5MB każde).
               </p>
-              <div className="space-y-2">
-                {formData.images.map((image, index) => (
-                  <div key={index} className="flex gap-2">
-                    <div className="flex-1 relative">
-                      <ImageIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        type="url"
-                        value={image}
-                        onChange={(e) => handleImageChange(index, e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="https://example.com/image.jpg"
+
+              {/* Input do wyboru plików */}
+              <div className="mb-4">
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <ImageIcon className="h-10 w-10 text-gray-400 mb-2" />
+                    <p className="mb-2 text-sm text-gray-500">
+                      <span className="font-semibold">Kliknij aby wybrać</span> lub przeciągnij pliki
+                    </p>
+                    <p className="text-xs text-gray-500">PNG, JPG, GIF, WEBP (max 5MB)</p>
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileSelect}
+                    disabled={imageFiles.length >= 10}
+                  />
+                </label>
+              </div>
+
+              {/* Podgląd wybranych plików */}
+              {imageFiles.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {imageFiles.map((file, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border border-gray-300"
                       />
-                    </div>
-                    {formData.images.length > 1 && (
-                      <Button
+                      <button
                         type="button"
-                        variant="outline"
-                        onClick={() => removeImageField(index)}
-                        className="px-3"
+                        onClick={() => removeFile(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
                       >
                         <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {formData.images.length < 10 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addImageField}
-                  className="mt-2"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Dodaj kolejne zdjęcie
-                </Button>
+                      </button>
+                      <p className="text-xs text-gray-500 mt-1 truncate">{file.name}</p>
+                    </div>
+                  ))}
+                </div>
               )}
-              <p className="mt-2 text-xs text-gray-500">
-                Możesz dodać maksymalnie 10 zdjęć
-              </p>
-            </div>
-
-            {/* Przykładowe URLe */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-xs font-semibold text-gray-700 mb-2">
-                💡 Przykładowe zdjęcia (możesz użyć):
-              </p>
-              <div className="space-y-1 text-xs text-gray-600">
-                <p>• https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800</p>
-                <p>• https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800</p>
-              </div>
             </div>
 
             {/* Regulamin */}
@@ -395,11 +438,11 @@ export function AddProduct() {
             <div className="flex gap-3 pt-4 border-t">
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || uploadingImages}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 py-3 text-lg"
               >
                 <Plus className="h-5 w-5 mr-2" />
-                {loading ? 'Dodawanie...' : 'Dodaj ogłoszenie'}
+                {uploadingImages ? 'Przesyłanie zdjęć...' : loading ? 'Dodawanie...' : 'Dodaj ogłoszenie'}
               </Button>
               <Button
                 type="button"

@@ -186,3 +186,16 @@ export const updateProfile = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Błąd podczas aktualizacji profilu' });
   }
 };
+
+// Helper function do weryfikacji tokenu
+export const verifyToken = (req: Request): number | null => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return null;
+    
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
+    return decoded.userId;
+  } catch (error) {
+    return null;
+  }
+};
