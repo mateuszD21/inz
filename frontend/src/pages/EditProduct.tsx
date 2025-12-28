@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Save, X, Image as ImageIcon } from 'lucide-react';
+import { Save, X, Image as ImageIcon, MapPin } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { productApi } from '@/services/api';
 
@@ -21,8 +21,11 @@ export function EditProduct() {
     category: '',
     condition: '',
     location: '',
-    images: [''],
+    images: [] as string[],
   });
+
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const categories = [
     'Elektronika',
@@ -73,7 +76,7 @@ export function EditProduct() {
         category: product.category,
         condition: product.condition,
         location: product.location,
-        images: product.images.length > 0 ? product.images : [''],
+        images: product.images.length > 0 ? product.images : [],
       });
     } catch (error) {
       console.error('Błąd pobierania produktu:', error);
@@ -92,25 +95,56 @@ export function EditProduct() {
     });
   };
 
-  const handleImageChange = (index: number, value: string) => {
-    const newImages = [...formData.images];
-    newImages[index] = value;
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length + imageFiles.length + formData.images.length > 10) {
+      setError('Możesz dodać maksymalnie 10 zdjęć');
+      return;
+    }
+    setImageFiles([...imageFiles, ...files]);
+  };
+
+  const removeFile = (index: number) => {
+    setImageFiles(imageFiles.filter((_, i) => i !== index));
+  };
+
+  const removeExistingImage = (index: number) => {
+    const newImages = formData.images.filter((_, i) => i !== index);
     setFormData({ ...formData, images: newImages });
   };
 
-  const addImageField = () => {
-    setFormData({
-      ...formData,
-      images: [...formData.images, ''],
-    });
-  };
+  const uploadImages = async () => {
+    if (imageFiles.length === 0) return [];
 
-  const removeImageField = (index: number) => {
-    const newImages = formData.images.filter((_, i) => i !== index);
-    setFormData({
-      ...formData,
-      images: newImages.length > 0 ? newImages : [''],
-    });
+    setUploadingImages(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const file of imageFiles) {
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch('http://localhost:3000/api/upload/image', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        });
+
+        if (!response.ok) throw new Error('Błąd uploadu');
+
+        const data = await response.json();
+        uploadedUrls.push(`http://localhost:3000${data.url}`);
+      }
+
+      return uploadedUrls;
+    } catch (error) {
+      console.error('Błąd uploadu zdjęć:', error);
+      throw error;
+    } finally {
+      setUploadingImages(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -127,8 +161,15 @@ export function EditProduct() {
     }
 
     try {
-      const filteredImages = formData.images.filter(img => img.trim() !== '');
+      // Upload nowych zdjęć jeśli są
+      let uploadedImageUrls: string[] = [];
+      if (imageFiles.length > 0) {
+        uploadedImageUrls = await uploadImages();
+      }
       
+      // Połącz istniejące zdjęcia z nowo uploadowanymi
+      const allImages = [...formData.images, ...uploadedImageUrls];
+
       await productApi.update(parseInt(id!), {
         title: formData.title,
         description: formData.description,
@@ -136,7 +177,7 @@ export function EditProduct() {
         category: formData.category,
         condition: formData.condition,
         location: formData.location,
-        images: filteredImages,
+        images: allImages,
       });
 
       setSuccess('Ogłoszenie zostało zaktualizowane!');
@@ -195,7 +236,7 @@ export function EditProduct() {
                 onChange={handleChange}
                 required
                 maxLength={100}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="np. iPhone 14 Pro - stan idealny"
               />
               <p className="mt-1 text-xs text-gray-500">
@@ -215,7 +256,7 @@ export function EditProduct() {
                   value={formData.category}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Wybierz kategorię</option>
                   {categories.map((cat) => (
@@ -236,7 +277,7 @@ export function EditProduct() {
                   value={formData.condition}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Wybierz stan</option>
                   {conditions.map((cond) => (
@@ -259,9 +300,9 @@ export function EditProduct() {
                 value={formData.description}
                 onChange={handleChange}
                 required
-                rows={6}
+                rows={8}
                 maxLength={1000}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Opisz szczegółowo swój produkt..."
               />
               <p className="mt-1 text-xs text-gray-500">
@@ -284,7 +325,7 @@ export function EditProduct() {
                   required
                   min="0"
                   step="0.01"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0.00"
                 />
               </div>
@@ -293,75 +334,121 @@ export function EditProduct() {
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
                   Lokalizacja *
                 </label>
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="np. Warszawa, Mokotów"
-                />
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    id="location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    required
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="np. Warszawa, Mokotów"
+                  />
+                </div>
               </div>
             </div>
 
             {/* Zdjęcia */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Zdjęcia (URL)
+                Zdjęcia produktu
               </label>
-              <div className="space-y-2">
-                {formData.images.map((image, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="url"
-                      value={image}
-                      onChange={(e) => handleImageChange(index, e.target.value)}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="https://example.com/image.jpg"
-                    />
-                    {formData.images.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => removeImageField(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addImageField}
-                className="mt-2"
-              >
-                <ImageIcon className="h-4 w-4 mr-2" />
-                Dodaj kolejne zdjęcie
-              </Button>
-              <p className="mt-1 text-xs text-gray-500">
-                Możesz użyć linków do zdjęć z Unsplash, Imgur itp.
+              <p className="text-xs text-gray-500 mb-3">
+                Dodaj zdjęcia z komputera. Możesz mieć maksymalnie 10 zdjęć (max 5MB każde).
               </p>
+
+              {/* Istniejące zdjęcia */}
+              {formData.images.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Obecne zdjęcia:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {formData.images.map((image, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={image}
+                          alt={`Zdjęcie ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeExistingImage(index)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Nowe pliki do uploadu */}
+              {imageFiles.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Nowe zdjęcia do dodania:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {imageFiles.map((file, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={`Nowe ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeFile(index)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                        <p className="text-xs text-gray-500 mt-1 truncate">{file.name}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Input do wyboru nowych plików */}
+              {(formData.images.length + imageFiles.length) < 10 && (
+                <div>
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <ImageIcon className="h-10 w-10 text-gray-400 mb-2" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Kliknij aby wybrać</span> lub przeciągnij pliki
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF, WEBP (max 5MB)</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileSelect}
+                      disabled={(formData.images.length + imageFiles.length) >= 10}
+                    />
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* Przyciski */}
             <div className="flex gap-3 pt-4 border-t">
               <Button
                 type="submit"
-                disabled={saving}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                disabled={saving || uploadingImages}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 py-3 text-lg"
               >
                 <Save className="h-5 w-5 mr-2" />
-                {saving ? 'Zapisywanie...' : 'Zapisz zmiany'}
+                {uploadingImages ? 'Przesyłanie zdjęć...' : saving ? 'Zapisywanie...' : 'Zapisz zmiany'}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => navigate('/moje-ogloszenia')}
-                className="flex-1"
+                className="px-8"
               >
                 Anuluj
               </Button>
