@@ -60,3 +60,63 @@ export const userApi = {
   updateProfile: (data: { name: string; email: string; phone?: string; avatar?: string }) =>
     api.put('/auth/profile', data),
 };
+
+// ✨ Transactions
+export const transactionApi = {
+  // Rozpocznij transakcję (kupujący klika "Kup")
+  create: (productId: number, message?: string) => 
+    api.post('/transactions', { productId, message }),
+  
+  // Pobierz moje transakcje
+  getMyTransactions: () => api.get('/transactions/my'),
+  
+  // Pobierz szczegóły transakcji
+  getById: (id: number) => api.get(`/transactions/${id}`),
+  
+  // Zaakceptuj transakcję (sprzedający)
+  accept: (id: number) => api.put(`/transactions/${id}/accept`),
+  
+  // Oznacz jako ukończoną (sprzedający)
+  complete: (id: number) => api.put(`/transactions/${id}/complete`),
+  
+  // Anuluj transakcję
+  cancel: (id: number, reason?: string) => api.put(`/transactions/${id}/cancel`, { reason }),
+  
+  // Pobierz transakcje produktu (dla sprzedającego)
+  getProductTransactions: (productId: number) => api.get(`/transactions/product/${productId}`),
+};
+
+// ✨ Messages
+export const messageApi = {
+  // Wyślij wiadomość
+  sendMessage: (data: { receiverId: number; content: string; productId?: number }) =>
+    api.post('/messages', data),
+  
+  // Pobierz wszystkie konwersacje
+  getConversations: () => api.get('/messages/conversations'),
+  
+  // Pobierz wiadomości z konkretną osobą
+  getMessages: (otherUserId: number) => api.get(`/messages/${otherUserId}`),
+  
+  // Liczba nieprzeczytanych
+  getUnreadCount: () => api.get('/messages/unread/count'),
+};
+
+// ⭐ Reviews - NOWE
+export const reviewApi = {
+  // Dodaj opinię
+  create: (data: { transactionId: number; rating: number; comment?: string }) =>
+    api.post('/reviews', data),
+  
+  // Pobierz opinie o użytkowniku
+  getUserReviews: (userId: number) => api.get(`/reviews/user/${userId}`),
+  
+  // Pobierz statystyki opinii użytkownika
+  getUserReviewStats: (userId: number) => api.get(`/reviews/user/${userId}/stats`),
+  
+  // Sprawdź czy można dodać opinię
+  canReview: (transactionId: number) => api.get(`/reviews/can-review/${transactionId}`),
+  
+  // Usuń opinię
+  delete: (reviewId: number) => api.delete(`/reviews/${reviewId}`),
+};

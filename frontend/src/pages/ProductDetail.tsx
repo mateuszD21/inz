@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Heart, Share2, ChevronLeft, ChevronRight, Phone, Mail, MessageCircle, Clock, Shield } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { productApi } from '@/services/api';
-import { Product } from '@/types';
+import { MapPin, Heart, Share2, ChevronLeft, ChevronRight, Phone, Mail, MessageCircle, Clock, Shield, ShoppingCart, CheckCircle } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { productApi, transactionApi } from '../services/api';
+import { Product } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export function ProductDetail() {
   const { id } = useParams<{ id: string }>();
+  const { user, isAuthenticated } = useAuth();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  
+  // ✨ NOWE - stan dla transakcji
+  const [buyingInProgress, setBuyingInProgress] = useState(false);
+  const [buySuccess, setBuySuccess] = useState(false);
+  const [buyError, setBuyError] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -58,6 +65,47 @@ export function ProductDetail() {
     }
   };
 
+  // ✨ NOWA FUNKCJA - Kup produkt
+  const handleBuyProduct = async () => {
+    if (!isAuthenticated) {
+      alert('Musisz być zalogowany żeby kupić produkt');
+      return;
+    }
+
+    if (!product) return;
+
+    // Sprawdź czy to nie jest własny produkt
+    if (user?.id === product.user.id) {
+      alert('Nie możesz kupić własnego produktu!');
+      return;
+    }
+
+    setBuyingInProgress(true);
+    setBuyError('');
+
+    try {
+      const response = await transactionApi.create(
+        product.id,
+        `Cześć! Jestem zainteresowany produktem "${product.title}". Chciałbym go kupić.`
+      );
+
+      console.log('Transaction created:', response.data);
+      
+      setBuySuccess(true);
+      
+      // Po 3 sekundach ukryj komunikat sukcesu
+      setTimeout(() => {
+        setBuySuccess(false);
+      }, 3000);
+
+    } catch (error: any) {
+      console.error('Błąd kupna:', error);
+      setBuyError(error.response?.data?.error || 'Nie udało się rozpocząć transakcji');
+    } finally {
+      setBuyingInProgress(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pl-PL', {
@@ -86,6 +134,9 @@ export function ProductDetail() {
     );
   }
 
+  const isOwnProduct = user?.id === product.user.id;
+  const isProductSold = product.status === 'sold';
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -111,6 +162,13 @@ export function ProductDetail() {
                   alt={product.title}
                   className="w-full h-full object-contain"
                 />
+                
+                {/* Status Badge */}
+                {isProductSold && (
+                  <div className="absolute top-4 left-4 bg-red-600 text-white px-4 py-2 rounded-lg font-semibold text-lg shadow-lg">
+                    Sprzedane
+                  </div>
+                )}
                 
                 {/* Navigation Arrows */}
                 {product.images.length > 1 && (
@@ -227,6 +285,25 @@ export function ProductDetail() {
                 <p className="text-4xl font-bold text-blue-600">{product.price} zł</p>
               </div>
 
+              {/* ✨ NOWE - Komunikaty o transakcji */}
+              {buySuccess && (
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <CheckCircle className="h-5 w-5" />
+                    <p className="font-semibold">Transakcja rozpoczęta!</p>
+                  </div>
+                  <p className="text-sm text-green-700 mt-1">
+                    Sprzedający został powiadomiony. Możesz teraz napisać wiadomość.
+                  </p>
+                </div>
+              )}
+
+              {buyError && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800">{buyError}</p>
+                </div>
+              )}
+
               {/* Seller Info */}
               <div className="border-t pt-6 mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Sprzedający</h3>
@@ -251,25 +328,46 @@ export function ProductDetail() {
                 </div>
               </div>
 
-              {/* Contact Buttons */}
+              {/* ✨ NOWE - Przyciski akcji */}
               <div className="space-y-3">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6">
-                  <MessageCircle className="mr-2 h-5 w-5" />
-                  Wyślij wiadomość
-                </Button>
-                
-                {product.user.phone && (
-                  <Button variant="outline" className="w-full text-lg py-6">
-                    <Phone className="mr-2 h-5 w-5" />
-                    Zadzwoń
-                  </Button>
-                )}
-                
-                {product.user.email && (
-                  <Button variant="outline" className="w-full text-lg py-6">
-                    <Mail className="mr-2 h-5 w-5" />
-                    Email
-                  </Button>
+                {isOwnProduct ? (
+                  <div className="p-4 bg-blue-50 rounded-lg text-center">
+                    <p className="text-sm text-blue-800">To jest Twoje ogłoszenie</p>
+                  </div>
+                ) : isProductSold ? (
+                  <div className="p-4 bg-gray-50 rounded-lg text-center">
+                    <p className="text-sm text-gray-600">Produkt został już sprzedany</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Przycisk KUP - najważniejszy */}
+                    <Button 
+                      onClick={handleBuyProduct}
+                      disabled={buyingInProgress || buySuccess}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6 font-semibold"
+                    >
+                      <ShoppingCart className="mr-2 h-5 w-5" />
+                      {buyingInProgress ? 'Rozpoczywanie...' : buySuccess ? 'Transakcja rozpoczęta!' : 'Kup teraz'}
+                    </Button>
+                    
+                    {/* Przycisk wiadomości */}
+                    <Button 
+                      onClick={() => navigate(`/wiadomosci/${product.user.id}`)}
+                      variant="outline" 
+                      className="w-full text-lg py-6"
+                      disabled={!isAuthenticated}
+                    >
+                      <MessageCircle className="mr-2 h-5 w-5" />
+                      Wyślij wiadomość
+                    </Button>
+                    
+                    {product.user.phone && (
+                      <Button variant="outline" className="w-full text-lg py-6">
+                        <Phone className="mr-2 h-5 w-5" />
+                        Zadzwoń
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
 

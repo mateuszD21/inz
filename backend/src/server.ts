@@ -5,6 +5,9 @@ import path from 'path';
 import productRoutes from './routes/productRoutes';
 import authRoutes from './routes/authRoutes';
 import uploadRoutes from './routes/uploadRoutes';
+import transactionRoutes from './routes/transactionRoutes';
+import messageRoutes from './routes/messageRoutes';
+import reviewRoutes from './routes/reviewRoutes'; // ✨ NOWE
 
 dotenv.config();
 
@@ -22,6 +25,9 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/reviews', reviewRoutes); // ✨ NOWE
 
 // Test endpoint
 app.get('/api/test', (req, res) => {

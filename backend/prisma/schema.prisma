@@ -54,6 +54,8 @@ model Transaction {
   buyer     User    @relation(fields: [buyerId], references: [id])
   productId Int
   product   Product @relation(fields: [productId], references: [id])
+  
+  review    Review?
 }
 
 model Review {
@@ -64,8 +66,11 @@ model Review {
 
   reviewerId Int
   reviewer   User @relation("ReviewsGiven", fields: [reviewerId], references: [id])
-  reviewedId Int
-  reviewed   User @relation("ReviewsReceived", fields: [reviewedId], references: [id])
+  reviewedUserId Int
+  reviewedUser   User @relation("ReviewsReceived", fields: [reviewedUserId], references: [id])
+  
+  transactionId Int         @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
 }
 
 model Message {

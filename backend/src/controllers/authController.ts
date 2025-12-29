@@ -11,7 +11,6 @@ export const register = async (req: Request, res: Response) => {
   try {
     const { email, password, name, phone } = req.body;
 
-    // Sprawdź czy email już istnieje
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
@@ -20,10 +19,8 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email jest już zajęty' });
     }
 
-    // Hashuj hasło
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Utwórz użytkownika
     const user = await prisma.user.create({
       data: {
         email,
@@ -33,14 +30,12 @@ export const register = async (req: Request, res: Response) => {
       },
     });
 
-    // Wygeneruj token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Zwróć dane bez hasła
     const { password: _, ...userWithoutPassword } = user;
 
     res.status(201).json({
@@ -59,7 +54,6 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    // Znajdź użytkownika
     const user = await prisma.user.findUnique({
       where: { email },
     });
@@ -68,21 +62,18 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Nieprawidłowy email lub hasło' });
     }
 
-    // Sprawdź hasło
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Nieprawidłowy email lub hasło' });
     }
 
-    // Wygeneruj token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Zwróć dane bez hasła
     const { password: _, ...userWithoutPassword } = user;
 
     res.json({
@@ -142,7 +133,6 @@ export const updateProfile = async (req: Request, res: Response) => {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
     const { name, email, phone, avatar } = req.body;
 
-    // Sprawdź czy email nie jest zajęty przez innego użytkownika
     if (email) {
       const existingUser = await prisma.user.findFirst({
         where: {
@@ -158,7 +148,6 @@ export const updateProfile = async (req: Request, res: Response) => {
       }
     }
 
-    // Aktualizuj użytkownika
     const updatedUser = await prisma.user.update({
       where: { id: decoded.userId },
       data: {
@@ -184,6 +173,32 @@ export const updateProfile = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Błąd aktualizacji profilu:', error);
     res.status(500).json({ error: 'Błąd podczas aktualizacji profilu' });
+  }
+};
+
+// ✨ NOWE - Pobierz dane użytkownika po ID (publiczne dane)
+export const getUserById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(id) },
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Błąd pobierania użytkownika:', error);
+    res.status(500).json({ error: 'Błąd pobierania użytkownika' });
   }
 };
 

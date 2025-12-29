@@ -11,6 +11,10 @@ import { Profile } from './pages/Profile'
 import { MyProducts } from './pages/MyProducts'
 import { EditProduct } from './pages/EditProduct'
 import { AddProduct } from './pages/AddProduct'
+import { MyTransactions } from './pages/MyTransactions'
+import { Messages } from './pages/Messages'
+import { MessageDetail } from './pages/MessageDetail'
+import { AddReview } from './pages/AddReview' // ✨ NOWE
 
 function App() {
   return (
@@ -29,6 +33,10 @@ function App() {
               <Route path="/moje-ogloszenia" element={<MyProducts />} />
               <Route path="/dodaj" element={<AddProduct />} />
               <Route path="/edytuj/:id" element={<EditProduct />} />
+              <Route path="/transakcje" element={<MyTransactions />} />
+              <Route path="/wiadomosci" element={<Messages />} />
+              <Route path="/wiadomosci/:otherUserId" element={<MessageDetail />} />
+              <Route path="/opinia/:transactionId" element={<AddReview />} /> {/* ✨ NOWE */}
             </Routes>
           </main>
           <Footer />

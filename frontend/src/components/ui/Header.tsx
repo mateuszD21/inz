@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from "@/components/ui/button"
-import { Heart, ShoppingBag, User, Menu, X, LogOut } from "lucide-react"
+import { Heart, ShoppingBag, User, Menu, X, LogOut, MessageCircle, Package, ShoppingCart } from "lucide-react"
 import { useAuth } from '@/contexts/AuthContext'
 
 export function Header() {
@@ -38,6 +38,17 @@ export function Header() {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
+            {/* ✨ NOWY PRZYCISK - Wiadomości */}
+            {isAuthenticated && (
+              <Link to="/wiadomosci">
+                <Button variant="ghost" size="icon" className="relative">
+                  <MessageCircle className="h-5 w-5" />
+                  {/* Opcjonalnie: badge z liczbą nieprzeczytanych */}
+                  {/* <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span> */}
+                </Button>
+              </Link>
+            )}
+
             <Button variant="ghost" size="icon">
               <Heart className="h-5 w-5" />
             </Button>
@@ -63,27 +74,58 @@ export function Header() {
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                     <Link
                       to="/profil"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setUserMenuOpen(false)}
                     >
-                      Mój profil
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Mój profil
+                      </div>
                     </Link>
                     <Link
                       to="/moje-ogloszenia"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setUserMenuOpen(false)}
                     >
-                      Moje ogłoszenia
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4" />
+                        Moje ogłoszenia
+                      </div>
+                    </Link>
+                    {/* ✨ NOWY LINK - Transakcje */}
+                    <Link
+                      to="/transakcje"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <ShoppingCart className="h-4 w-4" />
+                        Moje transakcje
+                      </div>
+                    </Link>
+                    {/* ✨ NOWY LINK - Wiadomości */}
+                    <Link
+                      to="/wiadomosci"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Wiadomości
+                      </div>
                     </Link>
                     <Link
                       to="/ulubione"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setUserMenuOpen(false)}
                     >
-                      Ulubione
+                      <div className="flex items-center gap-2">
+                        <Heart className="h-4 w-4" />
+                        Ulubione
+                      </div>
                     </Link>
                     <hr className="my-1" />
                     <button
@@ -149,25 +191,46 @@ export function Header() {
                   <hr />
                   <Link
                     to="/profil"
-                    className="text-gray-700 hover:text-blue-600 transition"
+                    className="text-gray-700 hover:text-blue-600 transition flex items-center gap-2"
                     onClick={() => setMobileMenuOpen(false)}
                   >
+                    <User className="h-4 w-4" />
                     Mój profil
                   </Link>
                   <Link
                     to="/moje-ogloszenia"
-                    className="text-gray-700 hover:text-blue-600 transition"
+                    className="text-gray-700 hover:text-blue-600 transition flex items-center gap-2"
                     onClick={() => setMobileMenuOpen(false)}
                   >
+                    <Package className="h-4 w-4" />
                     Moje ogłoszenia
+                  </Link>
+                  {/* ✨ NOWY LINK mobile - Transakcje */}
+                  <Link
+                    to="/transakcje"
+                    className="text-gray-700 hover:text-blue-600 transition flex items-center gap-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    Moje transakcje
+                  </Link>
+                  {/* ✨ NOWY LINK mobile - Wiadomości */}
+                  <Link
+                    to="/wiadomosci"
+                    className="text-gray-700 hover:text-blue-600 transition flex items-center gap-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Wiadomości
                   </Link>
                   <button
                     onClick={() => {
                       handleLogout()
                       setMobileMenuOpen(false)
                     }}
-                    className="text-left text-red-600 hover:text-red-700 transition"
+                    className="text-left text-red-600 hover:text-red-700 transition flex items-center gap-2"
                   >
+                    <LogOut className="h-4 w-4" />
                     Wyloguj się
                   </button>
                   <hr />
