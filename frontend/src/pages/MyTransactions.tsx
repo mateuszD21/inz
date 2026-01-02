@@ -386,16 +386,7 @@ export function MyTransactions() {
                           </Button>
                         )}
 
-                        {/* Dodaj opinię (po ukończonej transakcji) */}
-                        {transaction.status === 'completed' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                          >
-                            ⭐ Dodaj opinię
-                          </Button>
-                        )}
+          
                       </div>
                     </div>
                   </div>

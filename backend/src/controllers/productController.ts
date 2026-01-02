@@ -18,10 +18,13 @@ const verifyToken = (req: Request): number | null => {
   }
 };
 
-// Pobierz wszystkie produkty
+// ✅ ZAKTUALIZOWANE - Pobierz wszystkie produkty (tylko aktywne)
 export const getAllProducts = async (req: Request, res: Response) => {
   try {
     const products = await prisma.product.findMany({
+      where: {
+        status: 'active', // ✅ Tylko aktywne produkty
+      },
       include: {
         user: {
           select: {
@@ -169,6 +172,7 @@ export const searchProductsByLocation = async (req: Request, res: Response) => {
         AND: [
           { latitude: { not: null } },
           { longitude: { not: null } },
+          { status: 'active' }, // ✅ Tylko aktywne produkty
         ],
       },
       include: {
@@ -211,6 +215,8 @@ export const getMyProducts = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Brak autoryzacji' });
     }
 
+    // ✅ Pobierz WSZYSTKIE produkty użytkownika (włącznie ze sprzedanymi)
+    // Bo użytkownik chce widzieć swoje sprzedane ogłoszenia
     const products = await prisma.product.findMany({
       where: { userId },
       include: {

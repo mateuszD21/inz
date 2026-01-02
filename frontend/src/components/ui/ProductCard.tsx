@@ -11,6 +11,9 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ id, title, price, location, image, distance }: ProductCardProps) {
+  // Nie pokazuj badge jeśli nie ma prawidłowej lokalizacji
+  const showDistance = distance && distance !== 'Brak lokalizacji';
+  
   return (
     <Link to={`/produkt/${id}`}>
       <div className="bg-white rounded-lg shadow-sm hover:shadow-lg transition overflow-hidden group cursor-pointer">
@@ -29,9 +32,12 @@ export function ProductCard({ id, title, price, location, image, distance }: Pro
           >
             <Heart className="h-5 w-5 text-gray-600 hover:text-red-500" />
           </button>
-          <div className="absolute bottom-3 left-3 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-            {distance}
-          </div>
+          {/* Tylko pokazuj badge jeśli jest prawidłowa odległość */}
+          {showDistance && (
+            <div className="absolute bottom-3 left-3 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+              {distance}
+            </div>
+          )}
         </div>
         <div className="p-4">
           <h3 className="font-semibold text-lg text-gray-900 mb-2 group-hover:text-blue-600 transition">

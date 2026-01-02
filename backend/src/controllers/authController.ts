@@ -176,7 +176,7 @@ export const updateProfile = async (req: Request, res: Response) => {
   }
 };
 
-// ✨ NOWE - Pobierz dane użytkownika po ID (publiczne dane)
+// ⭐ ZAKTUALIZOWANE - Pobierz dane użytkownika po ID (publiczne dane)
 export const getUserById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

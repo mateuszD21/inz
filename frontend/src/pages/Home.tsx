@@ -31,7 +31,9 @@ export function Home() {
   const fetchProducts = async () => {
     try {
       const response = await productApi.getAll();
-      setProducts(response.data.slice(0, 6)); // Pokaż tylko 6 na stronie głównej
+      // ✅ Filtruj tylko aktywne produkty (pomijaj sprzedane)
+      const activeProducts = response.data.filter((product: Product) => product.status === 'active');
+      setProducts(activeProducts.slice(0, 6)); // Pokaż tylko 6 na stronie głównej
     } catch (error) {
       console.error('Błąd pobierania produktów:', error);
     } finally {
@@ -51,8 +53,12 @@ export function Home() {
     navigate(`/produkty?category=${encodeURIComponent(categoryName)}`);
   };
 
+  // ✅ POPRAWIONA FUNKCJA - nie zwraca "Brak lokalizacji"
   const calculateDistance = (lat?: number, lon?: number) => {
-    if (!lat || !lon) return 'Brak lokalizacji';
+    // Jeśli nie ma współrzędnych, zwróć pusty string (badge nie będzie pokazany)
+    if (!lat || !lon) return '';
+    
+    // Symulacja odległości (w prawdziwej aplikacji użyj geolokalizacji użytkownika)
     const distance = Math.floor(Math.random() * 10) + 1;
     return `${distance} km`;
   };

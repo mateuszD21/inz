@@ -1,20 +1,29 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { MapPin, Heart, Share2, ChevronLeft, ChevronRight, Phone, Mail, MessageCircle, Clock, Shield, ShoppingCart, CheckCircle } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { MapPin, Heart, Share2, ChevronLeft, ChevronRight, Phone, Mail, MessageCircle, Clock, Shield, ShoppingCart, CheckCircle, Star } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { productApi, transactionApi } from '../services/api';
+import { productApi, transactionApi, reviewApi } from '../services/api';
 import { Product } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 export function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   
-  // ✨ NOWE - stan dla transakcji
+  // ⭐ NOWE - Opinie o sprzedającym
+  const [sellerReviews, setSellerReviews] = useState<any[]>([]);
+  const [sellerStats, setSellerStats] = useState({
+    totalReviews: 0,
+    averageRating: 0,
+  });
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  
+  // Stan dla transakcji
   const [buyingInProgress, setBuyingInProgress] = useState(false);
   const [buySuccess, setBuySuccess] = useState(false);
   const [buyError, setBuyError] = useState('');
@@ -28,11 +37,30 @@ export function ProductDetail() {
   const fetchProduct = async (productId: number) => {
     try {
       const response = await productApi.getById(productId);
-      setProduct(response.data);
+      const productData = response.data;
+      setProduct(productData);
+      
+      // ⭐ Pobierz opinie o sprzedającym
+      await fetchSellerReviews(productData.user.id);
     } catch (error) {
       console.error('Błąd pobierania produktu:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ⭐ NOWA FUNKCJA - Pobierz opinie o sprzedającym
+  const fetchSellerReviews = async (sellerId: number) => {
+    try {
+      // Pobierz statystyki
+      const statsResponse = await reviewApi.getUserReviewStats(sellerId);
+      setSellerStats(statsResponse.data);
+      
+      // Pobierz opinie
+      const reviewsResponse = await reviewApi.getUserReviews(sellerId);
+      setSellerReviews(reviewsResponse.data.reviews);
+    } catch (error) {
+      console.error('Błąd pobierania opinii:', error);
     }
   };
 
@@ -65,7 +93,6 @@ export function ProductDetail() {
     }
   };
 
-  // ✨ NOWA FUNKCJA - Kup produkt
   const handleBuyProduct = async () => {
     if (!isAuthenticated) {
       alert('Musisz być zalogowany żeby kupić produkt');
@@ -104,6 +131,30 @@ export function ProductDetail() {
     } finally {
       setBuyingInProgress(false);
     }
+  };
+
+  // ⭐ NOWA FUNKCJA - Renderowanie gwiazdek
+  const renderStars = (rating: number, size: 'sm' | 'md' | 'lg' = 'md') => {
+    const sizeClasses = {
+      sm: 'h-3 w-3',
+      md: 'h-4 w-4',
+      lg: 'h-5 w-5',
+    };
+    
+    return (
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`${sizeClasses[size]} ${
+              star <= rating
+                ? 'fill-yellow-400 text-yellow-400'
+                : 'text-gray-300'
+            }`}
+          />
+        ))}
+      </div>
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -274,6 +325,125 @@ export function ProductDetail() {
                 </div>
               </div>
             </div>
+
+            {/* ⭐ NOWA SEKCJA - Opinie o sprzedającym */}
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Opinie o sprzedającym
+                </h2>
+              </div>
+
+              {sellerStats.totalReviews === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-5xl mb-3">⭐</div>
+                  <p className="text-gray-600">
+                    Ten sprzedawca nie ma jeszcze żadnych opinii
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Podsumowanie ocen */}
+                  <div className="bg-blue-50 rounded-lg p-6 mb-6">
+                    <div className="flex flex-col sm:flex-row items-center gap-6">
+                      <div className="text-center">
+                        <div className="text-5xl font-bold text-gray-900 mb-2">
+                          {sellerStats.averageRating.toFixed(1)}
+                        </div>
+                        <div className="flex justify-center mb-2">
+                          {renderStars(Math.round(sellerStats.averageRating), 'lg')}
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          na podstawie {sellerStats.totalReviews} {sellerStats.totalReviews === 1 ? 'opinii' : 'opinii'}
+                        </p>
+                      </div>
+                      
+                      <div className="flex-1 w-full">
+                        <div className="space-y-2">
+                          {[5, 4, 3, 2, 1].map((rating) => {
+                            const count = sellerReviews.filter(r => r.rating === rating).length;
+                            const percentage = sellerStats.totalReviews > 0 
+                              ? (count / sellerStats.totalReviews) * 100 
+                              : 0;
+                            
+                            return (
+                              <div key={rating} className="flex items-center gap-2">
+                                <span className="text-sm text-gray-600 w-8">{rating}</span>
+                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-yellow-400 h-2 rounded-full transition-all"
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm text-gray-600 w-8">{count}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lista ostatnich opinii */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-gray-900">
+                      Ostatnie opinie ({sellerReviews.length > 3 && !showAllReviews ? '3' : sellerReviews.length})
+                    </h3>
+                    
+                    {(showAllReviews ? sellerReviews : sellerReviews.slice(0, 3)).map((review) => (
+                      <div 
+                        key={review.id} 
+                        className="border-b pb-4 last:border-b-0"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            {review.reviewer.avatar ? (
+                              <img
+                                src={review.reviewer.avatar}
+                                alt={review.reviewer.name}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                                {review.reviewer.name.charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                              <h4 className="font-semibold text-gray-900">
+                                {review.reviewer.name}
+                              </h4>
+                              <p className="text-sm text-gray-500">
+                                {formatDate(review.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                          {renderStars(review.rating)}
+                        </div>
+                        {review.comment && (
+                          <p className="text-gray-700 ml-13 text-sm">
+                            {review.comment}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    
+                    {/* Przycisk Pokaż więcej/mniej */}
+                    {sellerReviews.length > 3 && (
+                      <button
+                        onClick={() => setShowAllReviews(!showAllReviews)}
+                        className="w-full py-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
+                      >
+                        {showAllReviews 
+                          ? '↑ Pokaż mniej' 
+                          : `↓ Pokaż wszystkie (${sellerReviews.length})`
+                        }
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Right Column - Purchase Info */}
@@ -285,7 +455,7 @@ export function ProductDetail() {
                 <p className="text-4xl font-bold text-blue-600">{product.price} zł</p>
               </div>
 
-              {/* ✨ NOWE - Komunikaty o transakcji */}
+              {/* Komunikaty o transakcji */}
               {buySuccess && (
                 <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center gap-2 text-green-800">
@@ -308,7 +478,7 @@ export function ProductDetail() {
               <div className="border-t pt-6 mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Sprzedający</h3>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
                     {product.user.avatar ? (
                       <img
                         src={product.user.avatar}
@@ -321,14 +491,23 @@ export function ProductDetail() {
                       </span>
                     )}
                   </div>
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900">{product.user.name}</p>
-                    <p className="text-sm text-gray-600">Aktywny sprzedawca</p>
+                    {sellerStats.totalReviews > 0 ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        {renderStars(Math.round(sellerStats.averageRating), 'sm')}
+                        <span className="text-xs text-gray-600">
+                          {sellerStats.averageRating.toFixed(1)} ({sellerStats.totalReviews} {sellerStats.totalReviews === 1 ? 'opinia' : 'opinii'})
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600">Brak opinii</p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* ✨ NOWE - Przyciski akcji */}
+              {/* Przyciski akcji */}
               <div className="space-y-3">
                 {isOwnProduct ? (
                   <div className="p-4 bg-blue-50 rounded-lg text-center">
