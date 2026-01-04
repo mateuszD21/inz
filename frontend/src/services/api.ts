@@ -1,3 +1,5 @@
+// Fragment do dodania/zaktualizowania w pliku frontend/src/services/api.ts
+
 import axios from 'axios';
 
 const API_URL = 'http://localhost:3000/api';
@@ -34,7 +36,7 @@ api.interceptors.response.use(
   }
 );
 
-// Products
+// ✨ ZAKTUALIZOWANE - Products API z wyszukiwaniem po lokalizacji
 export const productApi = {
   getAll: () => api.get('/products'),
   getById: (id: number) => api.get(`/products/${id}`),
@@ -42,7 +44,15 @@ export const productApi = {
   create: (data: any) => api.post('/products', data),
   update: (id: number, data: any) => api.put(`/products/${id}`, data),
   delete: (id: number) => api.delete(`/products/${id}`),
-  // ✨ ZAKTUALIZOWANE - Wyszukiwanie po lokalizacji z URLSearchParams
+  
+  // ✨ NOWA METODA - Wyszukiwanie po lokalizacji
+  // Przykłady użycia:
+  // 1. Po mieście: searchByLocation(new URLSearchParams({ city: 'Warszawa', radius: '50' }))
+  // 2. Po współrzędnych: searchByLocation(new URLSearchParams({ 
+  //      latitude: '52.2297', 
+  //      longitude: '21.0122', 
+  //      radius: '50' 
+  //    }))
   searchByLocation: (params: URLSearchParams) => 
     api.get(`/products/search?${params.toString()}`),
 };

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Search, MapPin, Filter, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/ui/ProductCard';
+import { LocationFilter, LocationData } from '@/components/ui/LocationFilter';
 import { productApi } from '@/services/api';
 import { Product } from '@/types';
 
@@ -19,6 +20,9 @@ export function ProductList() {
   const [selectedCondition, setSelectedCondition] = useState('');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 20000]);
   const [showFilters, setShowFilters] = useState(false);
+  
+  // ✨ NOWE - Stan dla filtrowania po lokalizacji
+  const [locationFilter, setLocationFilter] = useState<LocationData | null>(null);
 
   const categories = [
     { name: "Wszystkie", value: "" },
@@ -43,7 +47,7 @@ export function ProductList() {
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [locationFilter]);
 
   useEffect(() => {
     filterProducts();
@@ -55,15 +59,34 @@ export function ProductList() {
     if (searchQuery) params.set('q', searchQuery);
     if (locationQuery) params.set('location', locationQuery);
     if (selectedCategory) params.set('category', selectedCategory);
+    if (locationFilter?.city) params.set('city', locationFilter.city);
+    if (locationFilter?.radius) params.set('radius', locationFilter.radius.toString());
     setSearchParams(params);
-  }, [searchQuery, locationQuery, selectedCategory]);
+  }, [searchQuery, locationQuery, selectedCategory, locationFilter]);
 
   const fetchProducts = async () => {
     try {
-      const response = await productApi.getAll();
-      // ✅ Filtruj tylko aktywne produkty (pomijaj sprzedane)
-      const activeProducts = response.data.filter((product: Product) => product.status === 'active');
-      setProducts(activeProducts);
+      // ✨ ZAKTUALIZOWANE - Użyj API z filtrowaniem po lokalizacji jeśli jest aktywne
+      if (locationFilter && (locationFilter.latitude || locationFilter.city)) {
+        const params = new URLSearchParams();
+        
+        if (locationFilter.latitude && locationFilter.longitude) {
+          params.set('latitude', locationFilter.latitude.toString());
+          params.set('longitude', locationFilter.longitude.toString());
+        } else if (locationFilter.city) {
+          params.set('city', locationFilter.city);
+        }
+        
+        params.set('radius', locationFilter.radius.toString());
+        
+        const response = await productApi.searchByLocation(params);
+        setProducts(response.data);
+      } else {
+        // Standardowe pobieranie wszystkich produktów
+        const response = await productApi.getAll();
+        const activeProducts = response.data.filter((product: Product) => product.status === 'active');
+        setProducts(activeProducts);
+      }
     } catch (error) {
       console.error('Błąd pobierania produktów:', error);
     } finally {
@@ -84,7 +107,7 @@ export function ProductList() {
       );
     }
 
-    // Filtrowanie po lokalizacji
+    // Filtrowanie po lokalizacji (tekstowe)
     if (locationQuery) {
       const location = locationQuery.toLowerCase();
       filtered = filtered.filter((product) =>
@@ -125,17 +148,38 @@ export function ProductList() {
     setSelectedCategory('');
     setSelectedCondition('');
     setPriceRange([0, 20000]);
+    setLocationFilter(null);
     setSearchParams(new URLSearchParams());
   };
 
-  // ✅ POPRAWIONA FUNKCJA - nie zwraca "Brak lokalizacji"
-  const calculateDistance = (lat?: number, lon?: number) => {
-    // Jeśli nie ma współrzędnych, zwróć pusty string (badge nie będzie pokazany)
-    if (!lat || !lon) return '';
+  // ✨ NOWA FUNKCJA - Oblicz odległość dla produktu
+  const calculateDistance = (product: Product) => {
+    if (!locationFilter || !locationFilter.latitude || !locationFilter.longitude) {
+      return '';
+    }
     
-    // Symulacja odległości (w prawdziwej aplikacji użyj geolokalizacji użytkownika)
-    const distance = Math.floor(Math.random() * 10) + 1;
-    return `${distance} km`;
+    if (!product.latitude || !product.longitude) {
+      return '';
+    }
+
+    // Formuła Haversine
+    const R = 6371; // Promień Ziemi w km
+    const dLat = toRad(product.latitude - locationFilter.latitude);
+    const dLon = toRad(product.longitude - locationFilter.longitude);
+    
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(locationFilter.latitude)) * 
+              Math.cos(toRad(product.latitude)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+
+    return `${distance.toFixed(1)} km`;
+  };
+
+  const toRad = (value: number) => {
+    return (value * Math.PI) / 180;
   };
 
   const activeFiltersCount = [
@@ -143,7 +187,8 @@ export function ProductList() {
     locationQuery,
     selectedCategory,
     selectedCondition,
-    priceRange[0] > 0 || priceRange[1] < 20000
+    priceRange[0] > 0 || priceRange[1] < 20000,
+    locationFilter
   ].filter(Boolean).length;
 
   return (
@@ -232,64 +277,72 @@ export function ProductList() {
           {/* Rozwinięte filtry */}
           {showFilters && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Stan produktu */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Stan
-                  </label>
-                  <select
-                    value={selectedCondition}
-                    onChange={(e) => setSelectedCondition(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {conditions.map((condition) => (
-                      <option key={condition.value} value={condition.value}>
-                        {condition.name}
-                      </option>
-                    ))}
-                  </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* ✨ NOWY KOMPONENT - Filtr lokalizacji */}
+                <div className="lg:col-span-1">
+                  <LocationFilter onLocationChange={setLocationFilter} />
                 </div>
 
-                {/* Zakres cen */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cena: {priceRange[0]} zł - {priceRange[1]} zł
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      placeholder="Od"
-                      value={priceRange[0]}
-                      onChange={(e) => setPriceRange([parseInt(e.target.value) || 0, priceRange[1]])}
+                {/* Stan produktu i cena */}
+                <div className="space-y-4">
+                  {/* Stan produktu */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Stan
+                    </label>
+                    <select
+                      value={selectedCondition}
+                      onChange={(e) => setSelectedCondition(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Do"
-                      value={priceRange[1]}
-                      onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value) || 20000])}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    >
+                      {conditions.map((condition) => (
+                        <option key={condition.value} value={condition.value}>
+                          {condition.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Zakres cen */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Cena: {priceRange[0]} zł - {priceRange[1]} zł
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Od"
+                        value={priceRange[0]}
+                        onChange={(e) => setPriceRange([parseInt(e.target.value) || 0, priceRange[1]])}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Do"
+                        value={priceRange[1]}
+                        onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value) || 20000])}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Przyciski akcji */}
-                <div className="flex items-end gap-2">
+                <div className="flex flex-col justify-end gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={clearFilters}
-                    className="flex-1"
+                    className="w-full"
                   >
-                    Wyczyść
+                    Wyczyść wszystko
                   </Button>
                   <Button
                     type="button"
                     onClick={() => setShowFilters(false)}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    className="w-full bg-blue-600 hover:bg-blue-700"
                   >
-                    Zastosuj
+                    Zastosuj filtry
                   </Button>
                 </div>
               </div>
@@ -308,6 +361,11 @@ export function ProductList() {
             </h1>
             <p className="text-gray-600 mt-1">
               Znaleziono {filteredProducts.length} {filteredProducts.length === 1 ? 'ogłoszenie' : 'ogłoszeń'}
+              {locationFilter && (locationFilter.city || locationFilter.latitude) && (
+                <span className="text-blue-600 font-medium">
+                  {' '}w promieniu {locationFilter.radius} km {locationFilter.city && `od ${locationFilter.city}`}
+                </span>
+              )}
             </p>
           </div>
 
@@ -324,7 +382,7 @@ export function ProductList() {
         </div>
 
         {/* Aktywne filtry */}
-        {(searchQuery || locationQuery || selectedCategory) && (
+        {(searchQuery || locationQuery || selectedCategory || locationFilter) && (
           <div className="mb-6 flex flex-wrap gap-2">
             {searchQuery && (
               <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
@@ -355,6 +413,20 @@ export function ProductList() {
                 <button
                   onClick={() => setSelectedCategory('')}
                   className="hover:text-blue-900"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            {locationFilter && (locationFilter.city || locationFilter.latitude) && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
+                <MapPin className="h-3 w-3" />
+                <span>
+                  {locationFilter.city || 'Twoja lokalizacja'} + {locationFilter.radius} km
+                </span>
+                <button
+                  onClick={() => setLocationFilter(null)}
+                  className="hover:text-green-900"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -391,7 +463,7 @@ export function ProductList() {
                 price={`${product.price} zł`}
                 location={product.location}
                 image={product.images[0] || 'https://via.placeholder.com/400x300'}
-                distance={calculateDistance(product.latitude, product.longitude)}
+                distance={calculateDistance(product)}
               />
             ))}
           </div>

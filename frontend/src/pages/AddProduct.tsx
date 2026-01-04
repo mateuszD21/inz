@@ -1,9 +1,13 @@
+// frontend/src/pages/AddProduct.tsx
+// UPROSZCZONA WERSJA - Automatyczny geocoding w tle bez dodatkowych przycisków
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Plus, X, Image as ImageIcon, MapPin } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { productApi } from '@/services/api';
+import { geocodeLocationWithFallback } from '@/services/geocoding';
 
 export function AddProduct() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -57,12 +61,6 @@ export function AddProduct() {
       ...formData,
       [e.target.name]: e.target.value,
     });
-  };
-
-  const handleImageChange = (index: number, value: string) => {
-    const newImages = [...formData.images];
-    newImages[index] = value;
-    setFormData({ ...formData, images: newImages });
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,14 +131,31 @@ export function AddProduct() {
       return;
     }
 
-    console.log('=== SUBMITTING PRODUCT ===');
-    console.log('Form data:', formData);
-    console.log('Image files:', imageFiles);
-    console.log('Token:', localStorage.getItem('token'));
+    if (!formData.location || formData.location.trim().length === 0) {
+      setError('Podaj lokalizację');
+      return;
+    }
 
+    console.log('=== SUBMITTING PRODUCT ===');
     setLoading(true);
 
     try {
+      // ✨ AUTOMATYCZNY GEOCODING - w tle, bez informowania użytkownika
+      console.log('🌍 Geocoding lokalizacji:', formData.location);
+      const geocoded = await geocodeLocationWithFallback(formData.location);
+      
+      let latitude = null;
+      let longitude = null;
+      
+      if (geocoded) {
+        latitude = geocoded.latitude;
+        longitude = geocoded.longitude;
+        console.log('✅ Geocoding success:', { latitude, longitude });
+      } else {
+        console.warn('⚠️ Geocoding failed - produkt bez współrzędnych GPS');
+        // Nie pokazujemy błędu użytkownikowi - po prostu zapisujemy bez GPS
+      }
+
       // Upload zdjęć jeśli są
       let uploadedImageUrls: string[] = [];
       if (imageFiles.length > 0) {
@@ -149,6 +164,7 @@ export function AddProduct() {
         console.log('Uploaded URLs:', uploadedImageUrls);
       }
       
+      // ✨ Zapisz produkt z GPS (jeśli udało się znaleźć) lub bez (jeśli nie)
       const productData = {
         title: formData.title,
         description: formData.description,
@@ -156,6 +172,8 @@ export function AddProduct() {
         category: formData.category,
         condition: formData.condition,
         location: formData.location,
+        latitude: latitude,   // może być null
+        longitude: longitude, // może być null
         images: uploadedImageUrls,
       };
 
@@ -339,6 +357,7 @@ export function AddProduct() {
                 </p>
               </div>
 
+              {/* ✨ UPROSZCZONA LOKALIZACJA - tylko input, bez przycisku */}
               <div>
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
                   Lokalizacja *

@@ -18,12 +18,12 @@ const verifyToken = (req: Request): number | null => {
   }
 };
 
-// ✅ ZAKTUALIZOWANE - Pobierz wszystkie produkty (tylko aktywne)
+// ✅ Pobierz wszystkie produkty (tylko aktywne)
 export const getAllProducts = async (req: Request, res: Response) => {
   try {
     const products = await prisma.product.findMany({
       where: {
-        status: 'active', // ✅ Tylko aktywne produkty
+        status: 'active',
       },
       include: {
         user: {
@@ -154,52 +154,104 @@ export const createProduct = async (req: Request, res: Response) => {
   }
 };
 
-// Wyszukiwanie produktów w promieniu
+// ✨ ZAKTUALIZOWANA FUNKCJA - Wyszukiwanie produktów w promieniu
 export const searchProductsByLocation = async (req: Request, res: Response) => {
   try {
-    const { latitude, longitude, radius = 10 } = req.query;
+    const { city, latitude, longitude, radius = '50' } = req.query;
 
-    if (!latitude || !longitude) {
-      return res.status(400).json({ error: 'Brak współrzędnych' });
-    }
+    console.log('=== SEARCH BY LOCATION ===');
+    console.log('Query params:', { city, latitude, longitude, radius });
 
-    const lat = parseFloat(latitude as string);
-    const lon = parseFloat(longitude as string);
-    const rad = parseFloat(radius as string);
-
-    const products = await prisma.product.findMany({
-      where: {
-        AND: [
-          { latitude: { not: null } },
-          { longitude: { not: null } },
-          { status: 'active' }, // ✅ Tylko aktywne produkty
-        ],
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
+    // Przypadek 1: Wyszukiwanie po nazwie miasta
+    if (city && typeof city === 'string') {
+      const products = await prisma.product.findMany({
+        where: {
+          location: {
+            contains: city,
+            mode: 'insensitive',
+          },
+          status: 'active',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
           },
         },
-      },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      console.log(`Found ${products.length} products in city: ${city}`);
+      return res.json(products);
+    }
+
+    // Przypadek 2: Wyszukiwanie po współrzędnych i promieniu
+    if (latitude && longitude) {
+      const lat = parseFloat(latitude as string);
+      const lon = parseFloat(longitude as string);
+      const rad = parseFloat(radius as string);
+
+      console.log('Searching by coordinates:', { lat, lon, rad });
+
+      // Pobierz wszystkie produkty z lokalizacją
+      const allProducts = await prisma.product.findMany({
+        where: {
+          AND: [
+            { latitude: { not: null } },
+            { longitude: { not: null } },
+            { status: 'active' },
+          ],
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+        },
+      });
+
+      console.log(`Processing ${allProducts.length} products with coordinates`);
+
+      // Oblicz odległości i filtruj
+      const productsWithDistance = allProducts
+        .map((product) => {
+          if (!product.latitude || !product.longitude) return null;
+          
+          const distance = calculateDistance(
+            lat,
+            lon,
+            product.latitude,
+            product.longitude
+          );
+          
+          return {
+            ...product,
+            distance: parseFloat(distance.toFixed(1)),
+          };
+        })
+        .filter((product): product is NonNullable<typeof product> => 
+          product !== null && product.distance <= rad
+        )
+        .sort((a, b) => a.distance - b.distance);
+
+      console.log(`Found ${productsWithDistance.length} products within ${rad}km`);
+
+      return res.json(productsWithDistance);
+    }
+
+    // Brak wymaganych parametrów
+    return res.status(400).json({ 
+      error: 'Podaj miasto lub współrzędne (latitude + longitude)' 
     });
 
-    const filtered = products.filter((product) => {
-      if (!product.latitude || !product.longitude) return false;
-      
-      const distance = calculateDistance(
-        lat,
-        lon,
-        product.latitude,
-        product.longitude
-      );
-      
-      return distance <= rad;
-    });
-
-    res.json(filtered);
   } catch (error) {
     console.error('Błąd wyszukiwania:', error);
     res.status(500).json({ error: 'Błąd wyszukiwania' });
@@ -215,8 +267,6 @@ export const getMyProducts = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Brak autoryzacji' });
     }
 
-    // ✅ Pobierz WSZYSTKIE produkty użytkownika (włącznie ze sprzedanymi)
-    // Bo użytkownik chce widzieć swoje sprzedane ogłoszenia
     const products = await prisma.product.findMany({
       where: { userId },
       include: {
@@ -333,22 +383,24 @@ export const deleteProduct = async (req: Request, res: Response) => {
   }
 };
 
-// Funkcja obliczająca odległość (Haversine)
+// ✨ Funkcja obliczająca odległość (Haversine)
 function calculateDistance(
   lat1: number,
   lon1: number,
   lat2: number,
   lon2: number
 ): number {
-  const R = 6371;
+  const R = 6371; // Promień Ziemi w km
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
+  
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) *
       Math.cos(toRad(lat2)) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
+  
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
