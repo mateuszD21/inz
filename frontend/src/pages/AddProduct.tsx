@@ -1,21 +1,36 @@
-// frontend/src/pages/AddProduct.tsx
-// UPROSZCZONA WERSJA - Automatyczny geocoding w tle bez dodatkowych przycisków
-
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Plus, X, Image as ImageIcon, MapPin } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { productApi } from '@/services/api';
-import { geocodeLocationWithFallback } from '@/services/geocoding';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { Upload, X, MapPin, Loader2 } from 'lucide-react';
+import { PaymentModal } from '../components/PaymentModal';
+import { geocodeLocationWithFallback } from '../services/geocoding';
+
+const categories = [
+  'Elektronika',
+  'Moda',
+  'Dom i Ogród',
+  'Sport',
+  'Motoryzacja',
+  'Książki',
+  'Zdrowie i Uroda',
+  'Dzieci',
+  'Inne',
+];
+
+const conditions = ['Nowe', 'Używane - Bardzo dobry', 'Używane - Dobry', 'Używane - Zadowalający'];
 
 export function AddProduct() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -23,469 +38,370 @@ export function AddProduct() {
     category: '',
     condition: '',
     location: '',
-    images: [] as string[],
+    latitude: null as number | null,
+    longitude: null as number | null,
   });
+  const [images, setImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [uploadingImages, setUploadingImages] = useState(false);
-
-  const categories = [
-    'Elektronika',
-    'Moda',
-    'Dom i Ogród',
-    'Sport',
-    'Książki',
-    'Zabawki',
-    'Motoryzacja',
-    'Zwierzęta',
-  ];
-
-  const conditions = [
-    'Nowy',
-    'Jak nowy',
-    'Bardzo dobry',
-    'Dobry',
-    'Zadowalający',
-  ];
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate('/logowanie', { state: { from: { pathname: '/dodaj' } } });
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: '' }));
     }
-  }, [isAuthenticated, authLoading, navigate]);
+  };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length + images.length > 10) {
+      alert('Możesz dodać maksymalnie 10 zdjęć');
+      return;
+    }
+
+    setImages((prev) => [...prev, ...files]);
+
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviews((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
     });
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length + imageFiles.length > 10) {
-      setError('Możesz dodać maksymalnie 10 zdjęć');
-      return;
-    }
-    setImageFiles([...imageFiles, ...files]);
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const removeFile = (index: number) => {
-    setImageFiles(imageFiles.filter((_, i) => i !== index));
-  };
+  const getCurrentLocation = () => {
+    setLoadingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData((prev) => ({ ...prev, latitude, longitude }));
 
-  const uploadImages = async () => {
-    if (imageFiles.length === 0) return [];
-
-    setUploadingImages(true);
-    const uploadedUrls: string[] = [];
-
-    try {
-      for (const file of imageFiles) {
-        const formData = new FormData();
-        formData.append('image', file);
-
-        const response = await fetch('http://localhost:3000/api/upload/image', {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
-
-        if (!response.ok) throw new Error('Błąd uploadu');
-
-        const data = await response.json();
-        uploadedUrls.push(`http://localhost:3000${data.url}`);
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+          );
+          const data = await response.json();
+          const location =
+            data.address.city ||
+            data.address.town ||
+            data.address.village ||
+            data.address.county ||
+            'Nieznana lokalizacja';
+          setFormData((prev) => ({ ...prev, location }));
+        } catch (error) {
+          console.error('Błąd podczas pobierania lokalizacji:', error);
+          setFormData((prev) => ({ ...prev, location: 'Nieznana lokalizacja' }));
+        } finally {
+          setLoadingLocation(false);
+        }
+      },
+      (error) => {
+        console.error('Błąd geolokalizacji:', error);
+        alert('Nie udało się pobrać lokalizacji');
+        setLoadingLocation(false);
       }
+    );
+  };
 
-      return uploadedUrls;
-    } catch (error) {
-      console.error('Błąd uploadu zdjęć:', error);
-      throw error;
-    } finally {
-      setUploadingImages(false);
-    }
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.title.trim()) newErrors.title = 'Tytuł jest wymagany';
+    if (!formData.description.trim()) newErrors.description = 'Opis jest wymagany';
+    if (!formData.price || parseFloat(formData.price) <= 0)
+      newErrors.price = 'Podaj prawidłową cenę';
+    if (!formData.category) newErrors.category = 'Wybierz kategorię';
+    if (!formData.condition) newErrors.condition = 'Wybierz stan';
+    if (!formData.location.trim()) newErrors.location = 'Lokalizacja jest wymagana';
+    if (images.length === 0) newErrors.images = 'Dodaj przynajmniej jedno zdjęcie';
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    // Walidacja
-    if (parseFloat(formData.price) <= 0) {
-      setError('Cena musi być większa niż 0');
+    
+    if (!validateForm()) {
       return;
     }
 
-    if (!formData.category) {
-      setError('Wybierz kategorię');
-      return;
+    // 🆕 GEOCODING - konwertuj lokalizację na współrzędne GPS
+    console.log('🌍 Geocoding lokalizacji:', formData.location);
+    setLoadingLocation(true);
+    
+    const geocoded = await geocodeLocationWithFallback(formData.location);
+    
+    let latitude = formData.latitude;
+    let longitude = formData.longitude;
+    
+    if (geocoded) {
+      latitude = geocoded.latitude;
+      longitude = geocoded.longitude;
+      console.log('✅ Geocoding success:', { latitude, longitude });
+    } else {
+      console.warn('⚠️ Geocoding failed - produkt bez współrzędnych GPS');
     }
+    
+    // Zaktualizuj formData o współrzędne
+    setFormData(prev => ({ ...prev, latitude, longitude }));
+    setLoadingLocation(false);
 
-    if (!formData.condition) {
-      setError('Wybierz stan produktu');
-      return;
-    }
-
-    if (!formData.location || formData.location.trim().length === 0) {
-      setError('Podaj lokalizację');
-      return;
-    }
-
-    console.log('=== SUBMITTING PRODUCT ===');
-    setLoading(true);
-
-    try {
-      // ✨ AUTOMATYCZNY GEOCODING - w tle, bez informowania użytkownika
-      console.log('🌍 Geocoding lokalizacji:', formData.location);
-      const geocoded = await geocodeLocationWithFallback(formData.location);
-      
-      let latitude = null;
-      let longitude = null;
-      
-      if (geocoded) {
-        latitude = geocoded.latitude;
-        longitude = geocoded.longitude;
-        console.log('✅ Geocoding success:', { latitude, longitude });
-      } else {
-        console.warn('⚠️ Geocoding failed - produkt bez współrzędnych GPS');
-        // Nie pokazujemy błędu użytkownikowi - po prostu zapisujemy bez GPS
-      }
-
-      // Upload zdjęć jeśli są
-      let uploadedImageUrls: string[] = [];
-      if (imageFiles.length > 0) {
-        console.log('Uploading images...');
-        uploadedImageUrls = await uploadImages();
-        console.log('Uploaded URLs:', uploadedImageUrls);
-      }
-      
-      // ✨ Zapisz produkt z GPS (jeśli udało się znaleźć) lub bez (jeśli nie)
-      const productData = {
-        title: formData.title,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        category: formData.category,
-        condition: formData.condition,
-        location: formData.location,
-        latitude: latitude,   // może być null
-        longitude: longitude, // może być null
-        images: uploadedImageUrls,
-      };
-
-      console.log('Sending product data:', productData);
-      
-      const response = await productApi.create(productData);
-      console.log('Response:', response);
-
-      setSuccess('Ogłoszenie zostało dodane!');
-      setTimeout(() => {
-        navigate(`/produkt/${response.data.id}`);
-      }, 1500);
-    } catch (err: any) {
-      console.error('ERROR:', err);
-      console.error('Response:', err.response);
-      setError(err.response?.data?.error || 'Błąd dodawania ogłoszenia');
-    } finally {
-      setLoading(false);
-    }
+    // Otwórz modal płatności
+    setShowPaymentModal(true);
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-600">Ładowanie...</p>
-      </div>
-    );
-  }
+  // ✅ UPROSZCZONE - PaymentModal teraz obsługuje wszystko
+  const handlePaymentSuccess = (productId: number) => {
+    alert('Ogłoszenie zostało dodane pomyślnie!');
+    navigate('/');
+  };
+
+  // ✅ Dane produktu do przekazania do PaymentModal
+  const productDataForPayment = {
+    title: formData.title,
+    description: formData.description,
+    price: parseFloat(formData.price),
+    category: formData.category,
+    condition: formData.condition,
+    location: formData.location,
+    latitude: formData.latitude,
+    longitude: formData.longitude,
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dodaj ogłoszenie</h1>
-          <p className="text-gray-600 mt-2">
-            Wypełnij formularz, aby dodać nowe ogłoszenie
-          </p>
-        </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-3xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-md p-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">Dodaj ogłoszenie</h1>
 
-        {/* Formularz */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          {success && (
-            <div className="mb-6 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-              <span className="text-xl">✅</span>
-              {success}
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-              <span className="text-xl">❌</span>
-              {error}
-            </div>
-          )}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              💳 <strong>Opłata za dodanie ogłoszenia: 10 zł</strong>
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              Po wypełnieniu formularza przejdziesz do bezpiecznej płatności przez Stripe
+            </p>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Informacja */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-900 mb-2">💡 Wskazówki</h3>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Dodaj szczegółowy opis - zwiększ szanse na sprzedaż</li>
-                <li>• Dodaj kilka zdjęć z różnych perspektyw</li>
-                <li>• Ustaw uczciwą cenę</li>
-                <li>• Podaj dokładną lokalizację</li>
-              </ul>
-            </div>
-
             {/* Tytuł */}
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                Tytuł ogłoszenia *
-              </label>
-              <input
-                type="text"
+              <Label htmlFor="title">Tytuł ogłoszenia *</Label>
+              <Input
                 id="title"
-                name="title"
                 value={formData.title}
-                onChange={handleChange}
-                required
-                maxLength={100}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="np. iPhone 14 Pro - stan idealny"
+                onChange={(e) => handleInputChange('title', e.target.value)}
+                placeholder="np. iPhone 13 Pro Max"
+                className={errors.title ? 'border-red-500' : ''}
               />
-              <p className="mt-1 text-xs text-gray-500">
-                {formData.title.length}/100 znaków
-              </p>
+              {errors.title && <p className="text-sm text-red-500 mt-1">{errors.title}</p>}
+            </div>
+
+            {/* Opis */}
+            <div>
+              <Label htmlFor="description">Opis *</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Opisz swój przedmiot..."
+                rows={6}
+                className={errors.description ? 'border-red-500' : ''}
+              />
+              {errors.description && (
+                <p className="text-sm text-red-500 mt-1">{errors.description}</p>
+              )}
+            </div>
+
+            {/* Cena */}
+            <div>
+              <Label htmlFor="price">Cena (zł) *</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                value={formData.price}
+                onChange={(e) => handleInputChange('price', e.target.value)}
+                placeholder="0.00"
+                className={errors.price ? 'border-red-500' : ''}
+              />
+              {errors.price && <p className="text-sm text-red-500 mt-1">{errors.price}</p>}
             </div>
 
             {/* Kategoria i Stan */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
-                  Kategoria *
-                </label>
-                <select
-                  id="category"
-                  name="category"
+                <Label htmlFor="category">Kategoria *</Label>
+                <Select
                   value={formData.category}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onValueChange={(value) => handleInputChange('category', value)}
                 >
-                  <option value="">Wybierz kategorię</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Wybierz kategorię" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.category && (
+                  <p className="text-sm text-red-500 mt-1">{errors.category}</p>
+                )}
               </div>
 
               <div>
-                <label htmlFor="condition" className="block text-sm font-medium text-gray-700 mb-2">
-                  Stan *
-                </label>
-                <select
-                  id="condition"
-                  name="condition"
+                <Label htmlFor="condition">Stan *</Label>
+                <Select
                   value={formData.condition}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onValueChange={(value) => handleInputChange('condition', value)}
                 >
-                  <option value="">Wybierz stan</option>
-                  {conditions.map((cond) => (
-                    <option key={cond} value={cond}>
-                      {cond}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className={errors.condition ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Wybierz stan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {conditions.map((cond) => (
+                      <SelectItem key={cond} value={cond}>
+                        {cond}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.condition && (
+                  <p className="text-sm text-red-500 mt-1">{errors.condition}</p>
+                )}
               </div>
             </div>
 
-            {/* Opis */}
+            {/* Lokalizacja */}
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                Opis *
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                required
-                rows={8}
-                maxLength={1000}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Opisz szczegółowo swój produkt:
-- Stan i wiek produktu
-- Ewentualne ślady użytkowania
-- Co zawiera zestaw
-- Powód sprzedaży
-- Dodatkowe informacje"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                {formData.description.length}/1000 znaków
-              </p>
-            </div>
-
-            {/* Cena i Lokalizacja */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
-                  Cena (zł) *
-                </label>
-                <input
-                  type="number"
-                  id="price"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleChange}
-                  required
-                  min="0"
-                  step="0.01"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0.00"
+              <Label htmlFor="location">Lokalizacja *</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="location"
+                  value={formData.location}
+                  onChange={(e) => handleInputChange('location', e.target.value)}
+                  placeholder="Wpisz lokalizację"
+                  className={errors.location ? 'border-red-500' : ''}
                 />
-                <p className="mt-1 text-xs text-gray-500">
-                  Podaj cenę w złotych polskich
-                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={getCurrentLocation}
+                  disabled={loadingLocation}
+                >
+                  {loadingLocation ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MapPin className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-
-              {/* ✨ UPROSZCZONA LOKALIZACJA - tylko input, bez przycisku */}
-              <div>
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-                  Lokalizacja *
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    id="location"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleChange}
-                    required
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="np. Warszawa, Mokotów"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  Miasto i dzielnica
-                </p>
-              </div>
+              {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
+              <p className="text-xs text-gray-500 mt-1">
+                Wpisz miasto (np. Warszawa, Lublin) - zostanie automatycznie skonwertowane na współrzędne GPS
+              </p>
             </div>
 
             {/* Zdjęcia */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Zdjęcia produktu
-              </label>
-              <p className="text-xs text-gray-500 mb-3">
-                Dodaj zdjęcia z komputera. Możesz dodać maksymalnie 10 zdjęć (max 5MB każde).
-              </p>
-
-              {/* Input do wyboru plików */}
-              <div className="mb-4">
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
+              <Label>Zdjęcia * (maksymalnie 10)</Label>
+              <div className="mt-2">
+                <label
+                  htmlFor="images"
+                  className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition ${
+                    errors.images ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                >
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <ImageIcon className="h-10 w-10 text-gray-400 mb-2" />
-                    <p className="mb-2 text-sm text-gray-500">
-                      <span className="font-semibold">Kliknij aby wybrać</span> lub przeciągnij pliki
+                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600">
+                      Kliknij aby dodać zdjęcia lub przeciągnij je tutaj
                     </p>
-                    <p className="text-xs text-gray-500">PNG, JPG, GIF, WEBP (max 5MB)</p>
                   </div>
                   <input
+                    id="images"
                     type="file"
                     className="hidden"
-                    accept="image/*"
                     multiple
-                    onChange={handleFileSelect}
-                    disabled={imageFiles.length >= 10}
+                    accept="image/*"
+                    onChange={handleImageUpload}
                   />
                 </label>
+                {errors.images && <p className="text-sm text-red-500 mt-1">{errors.images}</p>}
               </div>
 
-              {/* Podgląd wybranych plików */}
-              {imageFiles.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {imageFiles.map((file, index) => (
+              {/* Podgląd zdjęć */}
+              {imagePreviews.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
+                  {imagePreviews.map((preview, index) => (
                     <div key={index} className="relative group">
                       <img
-                        src={URL.createObjectURL(file)}
+                        src={preview}
                         alt={`Preview ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                        className="w-full h-24 object-cover rounded-lg"
                       />
                       <button
                         type="button"
-                        onClick={() => removeFile(index)}
+                        onClick={() => removeImage(index)}
                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
                       >
                         <X className="h-4 w-4" />
                       </button>
-                      <p className="text-xs text-gray-500 mt-1 truncate">{file.name}</p>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Regulamin */}
-            <div className="flex items-start">
-              <input
-                id="terms"
-                name="terms"
-                type="checkbox"
-                required
-                className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="terms" className="ml-2 block text-sm text-gray-900">
-                Akceptuję{' '}
-                <a href="#" className="text-blue-600 hover:text-blue-500">
-                  regulamin serwisu
-                </a>{' '}
-                i potwierdzam, że ogłoszenie jest zgodne z prawem
-              </label>
-            </div>
-
             {/* Przyciski */}
-            <div className="flex gap-3 pt-4 border-t">
-              <Button
-                type="submit"
-                disabled={loading || uploadingImages}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 py-3 text-lg"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                {uploadingImages ? 'Przesyłanie zdjęć...' : loading ? 'Dodawanie...' : 'Dodaj ogłoszenie'}
-              </Button>
+            <div className="flex gap-4 pt-4">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(-1)}
-                className="px-8"
+                onClick={() => navigate('/')}
+                className="flex-1"
               >
                 Anuluj
+              </Button>
+              <Button 
+                type="submit" 
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                disabled={loadingLocation}
+              >
+                {loadingLocation ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Pobieranie lokalizacji...
+                  </>
+                ) : (
+                  'Przejdź do płatności (10 zł)'
+                )}
               </Button>
             </div>
           </form>
         </div>
-
-        {/* Dodatkowe informacje */}
-        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
-          <h3 className="font-semibold text-gray-900 mb-3">📋 Co dalej?</h3>
-          <ol className="space-y-2 text-sm text-gray-600">
-            <li>1. Po dodaniu ogłoszenia zostanie ono opublikowane natychmiast</li>
-            <li>2. Możesz je edytować lub usunąć w zakładce "Moje ogłoszenia"</li>
-            <li>3. Kupujący będą mogli skontaktować się z Tobą przez formularz</li>
-            <li>4. Pamiętaj o bezpiecznych transakcjach - spotkaj się w publicznym miejscu</li>
-          </ol>
-        </div>
       </div>
+
+      {/* ✅ Modal płatności z przekazanymi zdjęciami */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        productData={productDataForPayment}
+        images={images}
+        onSuccess={handlePaymentSuccess}
+      />
     </div>
   );
 }
