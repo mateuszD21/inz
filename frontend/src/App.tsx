@@ -14,7 +14,7 @@ import { AddProduct } from './pages/AddProduct'
 import { MyTransactions } from './pages/MyTransactions'
 import { Messages } from './pages/Messages'
 import { MessageDetail } from './pages/MessageDetail'
-import { AddReview } from './pages/AddReview' // ✨ NOWE
+import { AddReview } from './pages/AddReview' 
 
 function App() {
   return (
@@ -36,7 +36,7 @@ function App() {
               <Route path="/transakcje" element={<MyTransactions />} />
               <Route path="/wiadomosci" element={<Messages />} />
               <Route path="/wiadomosci/:otherUserId" element={<MessageDetail />} />
-              <Route path="/opinia/:transactionId" element={<AddReview />} /> {/* ✨ NOWE */}
+              <Route path="/opinia/:transactionId" element={<AddReview />} /> 
             </Routes>
           </main>
           <Footer />

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { User, Mail, Phone, Camera, Save, X, Star, Package, Heart, MessageCircle } from 'lucide-react';
+import { Mail, Phone, Camera, Save, X, Star, Package, MessageCircle, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { userApi, reviewApi, productApi } from '@/services/api';
+import { userApi, reviewApi, productApi, authApi } from '@/services/api';
 
 export function Profile() {
   const { userId } = useParams<{ userId?: string }>();
@@ -14,15 +14,14 @@ export function Profile() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   
-  // ⭐ NOWE - statystyki użytkownika
+  // Statystyki użytkownika
   const [stats, setStats] = useState({
     productsCount: 0,
     reviewsCount: 0,
     averageRating: 0,
-    favoritesCount: 0, // Na razie hardcoded, bo nie ma systemu ulubionych
   });
   
-  // ⭐ NOWE - opinie użytkownika
+  // Opinie użytkownika
   const [reviews, setReviews] = useState<any[]>([]);
   const [showReviews, setShowReviews] = useState(false);
   
@@ -33,7 +32,20 @@ export function Profile() {
     avatar: '',
   });
 
-  // Określ czy to jest profil zalogowanego użytkownika czy innego użytkownika
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+
   const isOwnProfile = !userId || (user && user.id === parseInt(userId));
   const profileUserId = userId ? parseInt(userId) : user?.id;
 
@@ -54,7 +66,7 @@ export function Profile() {
     }
   }, [user]);
 
-  // ⭐ NOWE - pobierz statystyki użytkownika
+  // pobieranie statystyk użytkownika
   useEffect(() => {
     if (profileUserId) {
       fetchUserStats();
@@ -63,18 +75,18 @@ export function Profile() {
 
   const fetchUserStats = async () => {
     try {
-      // Pobierz statystyki opinii
+      // pobieranie statystyk opinii
       const reviewStatsResponse = await reviewApi.getUserReviewStats(profileUserId!);
       const reviewStats = reviewStatsResponse.data;
       
-      // Pobierz produkty użytkownika
+      // pobieranie produktow użytkownika
       let productsCount = 0;
       if (isOwnProfile) {
         const productsResponse = await productApi.getMyProducts();
         productsCount = productsResponse.data.length;
       }
       
-      // Pobierz opinie użytkownika
+      // pobieranie opini użytkownika
       const reviewsResponse = await reviewApi.getUserReviews(profileUserId!);
       const userReviews = reviewsResponse.data.reviews;
       
@@ -82,7 +94,6 @@ export function Profile() {
         productsCount,
         reviewsCount: reviewStats.totalReviews,
         averageRating: reviewStats.averageRating,
-        favoritesCount: 0, // Placeholder
       });
       
       setReviews(userReviews);
@@ -110,7 +121,7 @@ export function Profile() {
       setSuccess('Profil został zaktualizowany!');
       setIsEditing(false);
       
-      // Odśwież stronę po 1 sekundzie żeby załadować nowe dane
+      // odświeżanie stronę po 1 sekundzie żeby załadować nowe dane
       setTimeout(() => {
         window.location.reload();
       }, 1000);
@@ -133,6 +144,75 @@ export function Profile() {
     setIsEditing(false);
     setError('');
     setSuccess('');
+  };
+
+  // zmiana hasła
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPasswordData({
+      ...passwordData,
+      [e.target.name]: e.target.value,
+    });
+    setPasswordError('');
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordError('Wszystkie pola są wymagane');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setPasswordError('Nowe hasło musi mieć minimum 6 znaków');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('Nowe hasła nie są identyczne');
+      return;
+    }
+
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      setPasswordError('Nowe hasło musi być inne niż aktualne');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await authApi.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+
+      setPasswordSuccess('Hasło zostało zmienione!');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      
+      // Zamknij formularz po 2 sekundach
+      setTimeout(() => {
+        setIsChangingPassword(false);
+        setPasswordSuccess('');
+      }, 2000);
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.error || 'Błąd zmiany hasła');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // toggle pokazywania hasła
+  const togglePasswordVisibility = (field: 'current' | 'new' | 'confirm') => {
+    setShowPasswords({
+      ...showPasswords,
+      [field]: !showPasswords[field],
+    });
   };
 
   const renderStars = (rating: number) => {
@@ -212,7 +292,7 @@ export function Profile() {
                 
                 <h2 className="mt-4 text-xl font-bold text-gray-900">{formData.name}</h2>
                 
-                {/* ⭐ NOWE - Średnia ocen */}
+                {/* Średnia ocen */}
                 {stats.reviewsCount > 0 && (
                   <div className="mt-2 flex items-center gap-2">
                     {renderStars(Math.round(stats.averageRating))}
@@ -252,7 +332,7 @@ export function Profile() {
                   </Button>
                 )}
                 
-                {/* Przycisk do wysłania wiadomości (dla obcych profili) */}
+                {}
                 {!isOwnProfile && (
                   <Button
                     onClick={() => navigate(`/wiadomosci/${profileUserId}`)}
@@ -294,24 +374,15 @@ export function Profile() {
                     </span>
                   </div>
                 )}
-                {isOwnProfile && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 flex items-center gap-2">
-                      <Heart className="h-4 w-4" />
-                      Ulubione
-                    </span>
-                    <span className="font-semibold text-gray-900">{stats.favoritesCount}</span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Prawa kolumna - Formularz lub Opinie */}
+          {}
           <div className="lg:col-span-2">
             {isOwnProfile ? (
               <>
-                {/* Formularz edycji (tylko dla własnego profilu) */}
+                {}
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-gray-900">
@@ -340,7 +411,7 @@ export function Profile() {
                   )}
 
                   <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Imię i nazwisko */}
+                    {}
                     <div>
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                         Imię i nazwisko
@@ -423,7 +494,6 @@ export function Profile() {
                       </div>
                     )}
 
-                    {/* Przyciski akcji */}
                     {isEditing && (
                       <div className="flex gap-3 pt-4">
                         <Button
@@ -447,32 +517,152 @@ export function Profile() {
                   </form>
                 </div>
 
-                {/* Zmiana hasła */}
+                {}
                 <div className="bg-white rounded-lg shadow-md p-6 mt-6">
                   <h2 className="text-xl font-bold text-gray-900 mb-4">Bezpieczeństwo</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Chcesz zmienić hasło? 
-                      </p>
-                      <Button variant="outline" className="w-full sm:w-auto">
-                        Zmień hasło
-                      </Button>
+                  
+                  {!isChangingPassword ? (
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-sm text-gray-600 mb-2">
+                          Chcesz zmienić hasło?
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          className="w-full sm:w-auto"
+                          onClick={() => setIsChangingPassword(true)}
+                        >
+                          <Lock className="h-4 w-4 mr-2" />
+                          Zmień hasło
+                        </Button>
+                      </div>
                     </div>
-                    <hr />
-                    <div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Usuń konto i wszystkie dane
-                      </p>
-                      <Button variant="outline" className="w-full sm:w-auto text-red-600 border-red-600 hover:bg-red-50">
-                        Usuń konto
-                      </Button>
-                    </div>
-                  </div>
+                  ) : (
+                    <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                      {passwordSuccess && (
+                        <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg text-sm">
+                          {passwordSuccess}
+                        </div>
+                      )}
+
+                      {passwordError && (
+                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+                          {passwordError}
+                        </div>
+                      )}
+
+                      {/* Aktualne hasło */}
+                      <div>
+                        <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                          Aktualne hasło *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPasswords.current ? "text" : "password"}
+                            id="currentPassword"
+                            name="currentPassword"
+                            value={passwordData.currentPassword}
+                            onChange={handlePasswordChange}
+                            required
+                            className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Wpisz aktualne hasło"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => togglePasswordVisibility('current')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          >
+                            {showPasswords.current ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Nowe hasło */}
+                      <div>
+                        <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                          Nowe hasło * (min. 6 znaków)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPasswords.new ? "text" : "password"}
+                            id="newPassword"
+                            name="newPassword"
+                            value={passwordData.newPassword}
+                            onChange={handlePasswordChange}
+                            required
+                            minLength={6}
+                            className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Wpisz nowe hasło"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => togglePasswordVisibility('new')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          >
+                            {showPasswords.new ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Potwierdź nowe hasło */}
+                      <div>
+                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                          Potwierdź nowe hasło *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPasswords.confirm ? "text" : "password"}
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            value={passwordData.confirmPassword}
+                            onChange={handlePasswordChange}
+                            required
+                            minLength={6}
+                            className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Wpisz ponownie nowe hasło"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => togglePasswordVisibility('confirm')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          >
+                            {showPasswords.confirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Przyciski */}
+                      <div className="flex gap-3 pt-2">
+                        <Button
+                          type="submit"
+                          disabled={loading}
+                          className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        >
+                          {loading ? 'Zmieniam...' : 'Zmień hasło'}
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setIsChangingPassword(false);
+                            setPasswordData({
+                              currentPassword: '',
+                              newPassword: '',
+                              confirmPassword: '',
+                            });
+                            setPasswordError('');
+                            setPasswordSuccess('');
+                          }}
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          Anuluj
+                        </Button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               </>
             ) : (
-              /* Sekcja opinii dla obcych profili */
               <div className="bg-white rounded-lg shadow-md p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">
                   Opinie ({stats.reviewsCount})
@@ -526,7 +716,7 @@ export function Profile() {
               </div>
             )}
             
-            {/* Sekcja opinii dla własnego profilu */}
+            {}
             {isOwnProfile && stats.reviewsCount > 0 && (
               <div className="bg-white rounded-lg shadow-md p-6 mt-6">
                 <div className="flex items-center justify-between mb-6">

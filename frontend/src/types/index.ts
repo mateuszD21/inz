@@ -19,11 +19,10 @@ export interface Product {
   longitude?: number;
   status: string;
   createdAt: string;
-  userId: number;  // ✨ DODANE - ID właściciela produktu
+  userId: number;  
   user: User;
 }
 
-// ✨ NOWY INTERFEJS - Transaction
 export interface Transaction {
   id: number;
   status: 'pending' | 'accepted' | 'completed' | 'cancelled';
@@ -35,7 +34,6 @@ export interface Transaction {
   product: Product;
 }
 
-// ⭐ NOWY INTERFEJS - Review
 export interface Review {
   id: number;
   rating: number;

@@ -18,7 +18,7 @@ const verifyToken = (req: Request): number | null => {
   }
 };
 
-// 💬 Wyślij wiadomość
+// Wysyłanie wiadomości
 export const sendMessage = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);
@@ -45,7 +45,7 @@ export const sendMessage = async (req: Request, res: Response) => {
       }
     }
 
-    // Utwórz wiadomość
+    // Tworzenie wiadomości
     const message = await prisma.message.create({
       data: {
         content: content.trim(),
@@ -70,7 +70,7 @@ export const sendMessage = async (req: Request, res: Response) => {
   }
 };
 
-// 📋 Pobierz konwersacje użytkownika
+// Pobieranie konwersacji użytkownika
 export const getConversations = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);
@@ -81,7 +81,7 @@ export const getConversations = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Brak autoryzacji' });
     }
 
-    // Pobierz wszystkie wiadomości gdzie user jest nadawcą lub odbiorcą
+    // Pobieranie wszystkich wiadomości
     const messages = await prisma.message.findMany({
       where: {
         OR: [
@@ -149,7 +149,6 @@ export const getConversations = async (req: Request, res: Response) => {
       conversationsMap.get(otherUserId).messages.push(msg);
     });
 
-    // Konwertuj na array i posortuj po dacie ostatniej wiadomości
     const conversations = Array.from(conversationsMap.values())
       .sort((a, b) => 
         new Date(b.lastMessage.createdAt).getTime() - 
@@ -165,7 +164,7 @@ export const getConversations = async (req: Request, res: Response) => {
   }
 };
 
-// 💬 Pobierz wiadomości z konkretną osobą
+// Pobierz wiadomości z konkretną osobą
 export const getMessages = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);
@@ -239,7 +238,7 @@ export const getMessages = async (req: Request, res: Response) => {
   }
 };
 
-// 🔔 Pobierz liczbę nieprzeczytanych wiadomości
+//  Pobierz liczbę nieprzeczytanych wiadomości
 export const getUnreadCount = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);

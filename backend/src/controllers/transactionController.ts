@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'super_tajny_klucz_jwt_abc123';
 
-// Helper function do weryfikacji tokenu
+// weryfikacja tokenu
 const verifyToken = (req: Request): number | null => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -18,7 +18,7 @@ const verifyToken = (req: Request): number | null => {
   }
 };
 
-// 🛒 Rozpocznij transakcję (kupujący klika "Kup")
+// ropoczynanie transakcji
 export const createTransaction = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);
@@ -29,7 +29,7 @@ export const createTransaction = async (req: Request, res: Response) => {
 
     const { productId, message } = req.body;
 
-    // Sprawdź czy produkt istnieje
+    // sprawdzanie czy produkt istnieje
     const product = await prisma.product.findUnique({
       where: { id: parseInt(productId) },
       include: { user: true },
@@ -39,17 +39,17 @@ export const createTransaction = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Produkt nie znaleziony' });
     }
 
-    // Sprawdź czy użytkownik nie próbuje kupić swojego produktu
+    // sprawdanie czy użytkownik nie próbuje kupić swojego produktu
     if (product.userId === userId) {
       return res.status(400).json({ error: 'Nie możesz kupić własnego produktu' });
     }
 
-    // Sprawdź czy produkt jest dostępny
+    // sprawdzanie czy produkt jest dostępny
     if (product.status !== 'active') {
       return res.status(400).json({ error: 'Produkt nie jest już dostępny' });
     }
 
-    // Sprawdź czy użytkownik nie ma już aktywnej transakcji dla tego produktu
+    // sprawdzanie czy użytkownik nie ma już aktywnej transakcji dla tego produktu
     const existingTransaction = await prisma.transaction.findFirst({
       where: {
         productId: parseInt(productId),
@@ -67,7 +67,7 @@ export const createTransaction = async (req: Request, res: Response) => {
       });
     }
 
-    // Utwórz transakcję
+    // tworzenie transakcji
     const transaction = await prisma.transaction.create({
       data: {
         buyerId: userId,
@@ -98,7 +98,7 @@ export const createTransaction = async (req: Request, res: Response) => {
       },
     });
 
-    // Opcjonalnie: Wyślij wiadomość do sprzedającego
+    // wysyłanie wiadomości do sprzedającego
     if (message) {
       await prisma.message.create({
         data: {
@@ -119,7 +119,7 @@ export const createTransaction = async (req: Request, res: Response) => {
   }
 };
 
-// 📋 Pobierz wszystkie transakcje użytkownika
+// pobieranie wszystkich transakcji użytkownika
 export const getMyTransactions = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);
@@ -178,7 +178,7 @@ export const getMyTransactions = async (req: Request, res: Response) => {
   }
 };
 
-// 📄 Pobierz szczegóły jednej transakcji
+// pobieranie szczegółów jednej z transakcji
 export const getTransactionById = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);
@@ -238,67 +238,27 @@ export const getTransactionById = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ Akceptuj transakcję (sprzedający)
-export const acceptTransaction = async (req: Request, res: Response) => {
-  try {
-    const userId = verifyToken(req);
-    
-    if (!userId) {
-      return res.status(401).json({ error: 'Brak autoryzacji' });
-    }
-
-    const { id } = req.params;
-
-    const transaction = await prisma.transaction.findUnique({
-      where: { id: parseInt(id) },
-      include: { product: true },
-    });
-
-    if (!transaction) {
-      return res.status(404).json({ error: 'Transakcja nie znaleziona' });
-    }
-
-    if (transaction.product.userId !== userId) {
-      return res.status(403).json({ error: 'Tylko sprzedający może zaakceptować transakcję' });
-    }
-
-    if (transaction.status !== 'pending') {
-      return res.status(400).json({ error: 'Transakcja nie jest w stanie oczekującym' });
-    }
-
-    const updatedTransaction = await prisma.transaction.update({
-      where: { id: parseInt(id) },
-      data: { status: 'accepted' },
-      include: {
-        buyer: true,
-        product: { include: { user: true } },
-      },
-    });
-
-    res.json({
-      message: 'Transakcja zaakceptowana',
-      transaction: updatedTransaction,
-    });
-  } catch (error) {
-    console.error('Błąd akceptacji transakcji:', error);
-    res.status(500).json({ error: 'Błąd akceptacji transakcji' });
-  }
-};
-
-// 🎉 Zakończ transakcję jako ukończoną (sprzedający)
+// oznaczanie transakcji jako zakonczona
 export const completeTransaction = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);
-    
     if (!userId) {
       return res.status(401).json({ error: 'Brak autoryzacji' });
     }
 
     const { id } = req.params;
+    const transactionId = parseInt(id);
 
     const transaction = await prisma.transaction.findUnique({
-      where: { id: parseInt(id) },
-      include: { product: true },
+      where: { id: transactionId },
+      include: {
+        product: {
+          include: {
+            user: true,
+          },
+        },
+        buyer: true,
+      },
     });
 
     if (!transaction) {
@@ -306,39 +266,46 @@ export const completeTransaction = async (req: Request, res: Response) => {
     }
 
     if (transaction.product.userId !== userId) {
-      return res.status(403).json({ error: 'Tylko sprzedający może oznaczyć transakcję jako ukończoną' });
+      return res.status(403).json({ error: 'Brak uprawnień' });
     }
 
-    if (transaction.status !== 'accepted') {
-      return res.status(400).json({ error: 'Transakcja musi być najpierw zaakceptowana' });
+    if (transaction.status !== 'pending' && transaction.status !== 'accepted') {
+      return res.status(400).json({ 
+        error: 'Można zakończyć tylko oczekujące transakcje' 
+      });
     }
 
     const updatedTransaction = await prisma.transaction.update({
-      where: { id: parseInt(id) },
-      data: { status: 'completed' },
+      where: { id: transactionId },
+      data: {
+        status: 'completed',
+      },
       include: {
+        product: {
+          include: {
+            user: true,
+          },
+        },
         buyer: true,
-        product: { include: { user: true } },
       },
     });
 
-    // Oznacz produkt jako sprzedany
     await prisma.product.update({
-      where: { id: transaction.productId },
-      data: { status: 'sold' },
+      where: { id: transaction.product.id },
+      data: {
+        status: 'sold',
+      },
     });
 
     res.json({
-      message: 'Transakcja ukończona! Produkt został oznaczony jako sprzedany.',
+      message: 'Transakcja została ukończona',
       transaction: updatedTransaction,
     });
   } catch (error) {
-    console.error('Błąd ukończenia transakcji:', error);
-    res.status(500).json({ error: 'Błąd ukończenia transakcji' });
+    console.error('Błąd kończenia transakcji:', error);
+    res.status(500).json({ error: 'Błąd kończenia transakcji' });
   }
 };
-
-// ❌ Anuluj transakcję
 export const cancelTransaction = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);

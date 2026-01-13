@@ -15,13 +15,11 @@ export function ProductList() {
   
   // Filtry
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [locationQuery, setLocationQuery] = useState(searchParams.get('location') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '');
   const [selectedCondition, setSelectedCondition] = useState('');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 20000]);
   const [showFilters, setShowFilters] = useState(false);
   
-  // ✨ NOWE - Stan dla filtrowania po lokalizacji
   const [locationFilter, setLocationFilter] = useState<LocationData | null>(null);
 
   const categories = [
@@ -51,22 +49,19 @@ export function ProductList() {
 
   useEffect(() => {
     filterProducts();
-  }, [products, searchQuery, locationQuery, selectedCategory, selectedCondition, priceRange]);
+  }, [products, searchQuery, selectedCategory, selectedCondition, priceRange]);
 
   useEffect(() => {
-    // Sync with URL params
     const params = new URLSearchParams();
     if (searchQuery) params.set('q', searchQuery);
-    if (locationQuery) params.set('location', locationQuery);
     if (selectedCategory) params.set('category', selectedCategory);
     if (locationFilter?.city) params.set('city', locationFilter.city);
     if (locationFilter?.radius) params.set('radius', locationFilter.radius.toString());
     setSearchParams(params);
-  }, [searchQuery, locationQuery, selectedCategory, locationFilter]);
+  }, [searchQuery, selectedCategory, locationFilter]);
 
   const fetchProducts = async () => {
     try {
-      // ✨ ZAKTUALIZOWANE - Użyj API z filtrowaniem po lokalizacji jeśli jest aktywne
       if (locationFilter && (locationFilter.latitude || locationFilter.city)) {
         const params = new URLSearchParams();
         
@@ -82,7 +77,6 @@ export function ProductList() {
         const response = await productApi.searchByLocation(params);
         setProducts(response.data);
       } else {
-        // Standardowe pobieranie wszystkich produktów
         const response = await productApi.getAll();
         const activeProducts = response.data.filter((product: Product) => product.status === 'active');
         setProducts(activeProducts);
@@ -104,14 +98,6 @@ export function ProductList() {
         (product) =>
           product.title.toLowerCase().includes(query) ||
           product.description.toLowerCase().includes(query)
-      );
-    }
-
-    // Filtrowanie po lokalizacji (tekstowe)
-    if (locationQuery) {
-      const location = locationQuery.toLowerCase();
-      filtered = filtered.filter((product) =>
-        product.location.toLowerCase().includes(location)
       );
     }
 
@@ -144,7 +130,6 @@ export function ProductList() {
 
   const clearFilters = () => {
     setSearchQuery('');
-    setLocationQuery('');
     setSelectedCategory('');
     setSelectedCondition('');
     setPriceRange([0, 20000]);
@@ -152,7 +137,6 @@ export function ProductList() {
     setSearchParams(new URLSearchParams());
   };
 
-  // ✨ NOWA FUNKCJA - Oblicz odległość dla produktu
   const calculateDistance = (product: Product) => {
     if (!locationFilter || !locationFilter.latitude || !locationFilter.longitude) {
       return '';
@@ -163,7 +147,7 @@ export function ProductList() {
     }
 
     // Formuła Haversine
-    const R = 6371; // Promień Ziemi w km
+    const R = 6371; 
     const dLat = toRad(product.latitude - locationFilter.latitude);
     const dLon = toRad(product.longitude - locationFilter.longitude);
     
@@ -184,7 +168,6 @@ export function ProductList() {
 
   const activeFiltersCount = [
     searchQuery,
-    locationQuery,
     selectedCategory,
     selectedCondition,
     priceRange[0] > 0 || priceRange[1] < 20000,
@@ -193,12 +176,12 @@ export function ProductList() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header z wyszukiwaniem */}
+      {}
       <div className="bg-white border-b sticky top-16 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <form onSubmit={handleSearch} className="space-y-3">
-            {/* Główne wyszukiwanie */}
-            <div className="flex flex-col md:flex-row gap-2">
+            {}
+            <div className="flex gap-2">
               <div className="flex-1 flex items-center gap-2 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">
                 <Search className="h-5 w-5 text-gray-400" />
                 <input
@@ -219,31 +202,10 @@ export function ProductList() {
                 )}
               </div>
 
-              <div className="flex-1 flex items-center gap-2 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">
-                <MapPin className="h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Lokalizacja (np. Mokotów, Śródmieście...)"
-                  value={locationQuery}
-                  onChange={(e) => setLocationQuery(e.target.value)}
-                  className="flex-1 bg-transparent border-none outline-none text-gray-900"
-                />
-                {locationQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setLocationQuery('')}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                )}
-              </div>
-
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
-                className="md:w-auto"
               >
                 <Filter className="h-5 w-5 mr-2" />
                 Filtry
@@ -278,14 +240,14 @@ export function ProductList() {
           {showFilters && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* ✨ NOWY KOMPONENT - Filtr lokalizacji */}
+                {}
                 <div className="lg:col-span-1">
                   <LocationFilter onLocationChange={setLocationFilter} />
                 </div>
 
-                {/* Stan produktu i cena */}
+                {}
                 <div className="space-y-4">
-                  {/* Stan produktu */}
+                  {}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Stan
@@ -303,7 +265,7 @@ export function ProductList() {
                     </select>
                   </div>
 
-                  {/* Zakres cen */}
+                  {}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Cena: {priceRange[0]} zł - {priceRange[1]} zł
@@ -327,7 +289,7 @@ export function ProductList() {
                   </div>
                 </div>
 
-                {/* Przyciski akcji */}
+                {}
                 <div className="flex flex-col justify-end gap-2">
                   <Button
                     type="button"
@@ -351,9 +313,9 @@ export function ProductList() {
         </div>
       </div>
 
-      {/* Wyniki */}
+      {}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Info o wynikach */}
+        {}
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
@@ -382,25 +344,13 @@ export function ProductList() {
         </div>
 
         {/* Aktywne filtry */}
-        {(searchQuery || locationQuery || selectedCategory || locationFilter) && (
+        {(searchQuery || selectedCategory || locationFilter) && (
           <div className="mb-6 flex flex-wrap gap-2">
             {searchQuery && (
               <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
                 <span>Szukasz: "{searchQuery}"</span>
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="hover:text-blue-900"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-            {locationQuery && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
-                <MapPin className="h-3 w-3" />
-                <span>{locationQuery}</span>
-                <button
-                  onClick={() => setLocationQuery('')}
                   className="hover:text-blue-900"
                 >
                   <X className="h-4 w-4" />
@@ -422,7 +372,7 @@ export function ProductList() {
               <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
                 <MapPin className="h-3 w-3" />
                 <span>
-                  {locationFilter.city || 'Twoja lokalizacja'} + {locationFilter.radius} km
+                  {locationFilter.city || 'Lokalizacja'} + {locationFilter.radius} km
                 </span>
                 <button
                   onClick={() => setLocationFilter(null)}
@@ -435,7 +385,7 @@ export function ProductList() {
           </div>
         )}
 
-        {/* Lista produktów */}
+        {}
         {loading ? (
           <div className="text-center py-12">
             <p className="text-gray-600">Ładowanie produktów...</p>

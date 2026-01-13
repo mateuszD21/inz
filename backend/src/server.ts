@@ -17,7 +17,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
-// WAŻNE: Webhook Stripe MUSI mieć raw body przed express.json()
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json());
@@ -37,7 +36,7 @@ app.get('/api/test', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`💳 Stripe payments enabled: ${process.env.STRIPE_SECRET_KEY ? '✅' : '❌'}`);
-  console.log(`🔔 Stripe webhook configured: ${process.env.STRIPE_WEBHOOK_SECRET ? '✅' : '❌'}`);
+  console.log(` Server running on http://localhost:${PORT}`);
+  console.log(` Stripe payments enabled: ${process.env.STRIPE_SECRET_KEY ? '✅' : '❌'}`);
+  console.log(` Stripe webhook configured: ${process.env.STRIPE_WEBHOOK_SECRET ? '✅' : '❌'}`);
 });

@@ -63,7 +63,7 @@ export function EditProduct() {
       const response = await productApi.getById(parseInt(id!));
       const product = response.data;
 
-      // Sprawdź czy użytkownik jest właścicielem
+      // sprawdzanie czy uzytkownik jest wlascielem ogloszenia
       if (product.userId !== user?.id) {
         navigate('/moje-ogloszenia');
         return;

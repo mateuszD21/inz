@@ -68,7 +68,6 @@ export function MessageDetail() {
             : firstMessage.sender
         );
       } else {
-        // ✨ Jeśli nie ma wiadomości, pobierz dane użytkownika z API
         try {
           const userResponse = await fetch(`http://localhost:3000/api/users/${otherUserId}`, {
             headers: {
@@ -81,7 +80,6 @@ export function MessageDetail() {
           }
         } catch (err) {
           console.error('Błąd pobierania użytkownika:', err);
-          // Fallback - podstawowe dane
           setOtherUser({
             id: parseInt(otherUserId!),
             name: 'Użytkownik',
@@ -91,7 +89,6 @@ export function MessageDetail() {
       }
     } catch (error) {
       console.error('Błąd pobierania wiadomości:', error);
-      // Nawet jeśli wystąpił błąd, spróbuj ustawić podstawowe dane
       setOtherUser({
         id: parseInt(otherUserId!),
         name: 'Użytkownik',

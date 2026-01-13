@@ -3,14 +3,12 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Usuń wszystkie istniejące dane
   await prisma.message.deleteMany();
   await prisma.review.deleteMany();
   await prisma.transaction.deleteMany();
   await prisma.product.deleteMany();
   await prisma.user.deleteMany();
 
-  // Stwórz testowych użytkowników
   const users = await Promise.all([
     prisma.user.create({
       data: {
@@ -50,7 +48,6 @@ async function main() {
     }),
   ]);
 
-  // Przykładowe produkty z wieloma zdjęciami
   const products = [
     {
       title: 'iPhone 14 Pro Max 256GB - Stan idealny',
@@ -357,7 +354,6 @@ Zegarek bez zadrapań, szkło chronione folią od pierwszego dnia.`,
     },
   ];
 
-  // Tworzenie produktów
   for (const product of products) {
     await prisma.product.create({ data: product });
   }

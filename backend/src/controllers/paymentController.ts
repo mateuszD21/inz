@@ -36,18 +36,16 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: LISTING_PRICE,
-      currency: 'pln',
-      automatic_payment_methods: {
-        enabled: true,
-      },
-      metadata: {
-        userId: userId.toString(),
-        productTitle: productData.title,
-        productCategory: productData.category || '',
-      },
-      description: `Opłata za dodanie ogłoszenia: ${productData.title}`,
-    });
+  amount: LISTING_PRICE,
+  currency: 'pln',
+  payment_method_types: ['card'], 
+  metadata: {
+    userId: userId.toString(),
+    productTitle: productData.title,
+    productCategory: productData.category || '',
+  },
+  description: `Opłata za dodanie ogłoszenia: ${productData.title}`,
+});
 
     await prisma.payment.create({
       data: {
@@ -195,7 +193,7 @@ export const stripeWebhook = async (req: Request, res: Response) => {
   switch (event.type) {
     case 'payment_intent.succeeded':
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      console.log('✅ Payment succeeded:', paymentIntent.id);
+      console.log(' Payment succeeded:', paymentIntent.id);
       
       await prisma.payment.updateMany({
         where: { stripePaymentIntentId: paymentIntent.id },
@@ -205,7 +203,7 @@ export const stripeWebhook = async (req: Request, res: Response) => {
 
     case 'payment_intent.payment_failed':
       const failedPayment = event.data.object as Stripe.PaymentIntent;
-      console.log('❌ Payment failed:', failedPayment.id);
+      console.log(' Payment failed:', failedPayment.id);
       
       await prisma.payment.updateMany({
         where: { stripePaymentIntentId: failedPayment.id },
@@ -215,7 +213,7 @@ export const stripeWebhook = async (req: Request, res: Response) => {
 
     case 'payment_intent.canceled':
       const canceledPayment = event.data.object as Stripe.PaymentIntent;
-      console.log('🚫 Payment canceled:', canceledPayment.id);
+      console.log(' Payment canceled:', canceledPayment.id);
       
       await prisma.payment.updateMany({
         where: { stripePaymentIntentId: canceledPayment.id },

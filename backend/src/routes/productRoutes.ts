@@ -13,6 +13,7 @@ import {
 } from '../controllers/productController';
 import jwt from 'jsonwebtoken';
 
+
 const router = Router();
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'super_tajny_klucz_jwt_abc123';
@@ -59,17 +60,15 @@ const upload = multer({
   }
 });
 
-// WAŻNE: kolejność ma znaczenie!
-// Bardziej szczegółowe routy muszą być PRZED ogólnymi
-router.get('/my', getMyProducts);           // /api/products/my
-router.get('/search', searchProductsByLocation); // /api/products/search
-router.post('/', createProduct);            // POST /api/products
-router.get('/', getAllProducts);            // GET /api/products
-router.get('/:id', getProductById);         // /api/products/:id
-router.put('/:id', updateProduct);          // PUT /api/products/:id
-router.delete('/:id', deleteProduct);       // DELETE /api/products/:id
+router.get('/my', getMyProducts);           
+router.get('/search', searchProductsByLocation); 
+router.post('/', createProduct);            
+router.get('/', getAllProducts);            
+router.get('/:id', getProductById);         
+router.put('/:id', updateProduct);          
+router.delete('/:id', deleteProduct);       
 
-// 🆕 NOWY ENDPOINT - Upload zdjęć do istniejącego produktu
+// Upload zdjęć do istniejącego produktu
 router.post('/:id/images', verifyToken, upload.array('images', 10), async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
@@ -80,7 +79,7 @@ router.post('/:id/images', verifyToken, upload.array('images', 10), async (req, 
       return res.status(400).json({ error: 'Brak zdjęć' });
     }
 
-    // Sprawdź czy produkt należy do użytkownika
+    // sprawdzanie czy produkt należy do użytkownika
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
@@ -93,10 +92,10 @@ router.post('/:id/images', verifyToken, upload.array('images', 10), async (req, 
       return res.status(403).json({ error: 'Brak uprawnień' });
     }
 
-    // Generuj URLe do zdjęć
+    // tworzenie url do zdjec
 const imageUrls = files.map(file => `/uploads/products/${file.filename}`); 
 
-    // Zaktualizuj produkt z nowymi zdjęciami
+    // aktualizacja produktu z nowymi zdjeciami
     const updatedProduct = await prisma.product.update({
       where: { id: productId },
       data: {

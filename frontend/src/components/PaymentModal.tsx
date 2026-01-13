@@ -20,7 +20,6 @@ interface PaymentModalProps {
 }
 
 function PaymentForm({ 
-  clientSecret, 
   onSuccess, 
   onError 
 }: { 
@@ -249,6 +248,10 @@ export function PaymentModal({ isOpen, onClose, productData, images, onSuccess }
     variables: {
       colorPrimary: '#2563eb',
     },
+    layout: {
+    type: 'tabs' as const,
+    defaultCollapsed: false,
+  },
   };
 
   return (

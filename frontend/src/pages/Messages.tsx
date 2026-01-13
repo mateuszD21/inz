@@ -46,7 +46,6 @@ export function Messages() {
     } catch (error: any) {
       console.error('Błąd pobierania konwersacji:', error);
       console.error('Error details:', error.response?.data);
-      // Nie pokazuj błędu użytkownikowi - po prostu zostaw pustą listę
     } finally {
       setLoading(false);
     }

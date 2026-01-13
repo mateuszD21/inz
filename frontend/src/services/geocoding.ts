@@ -1,6 +1,3 @@
-// frontend/src/services/geocoding.ts
-// Serwis do pobierania współrzędnych geograficznych z Nominatim (OpenStreetMap)
-
 interface NominatimResult {
   lat: string;
   lon: string;
@@ -15,18 +12,13 @@ interface GeocodingResult {
   displayName: string;
 }
 
-/**
- * Pobiera współrzędne dla podanej lokalizacji używając Nominatim API
- * @param location - Nazwa miejscowości (np. "Lublin", "Kraków", "Szczebrzeszyn")
- * @returns Obiekt z latitude, longitude i pełną nazwą lub null jeśli nie znaleziono
- */
+
 export async function geocodeLocation(location: string): Promise<GeocodingResult | null> {
   if (!location || location.trim().length === 0) {
     return null;
   }
 
   try {
-    // Dodaj "Poland" dla lepszych wyników w Polsce
     const query = location.includes('Poland') ? location : `${location}, Poland`;
     
     // Nominatim API endpoint
@@ -36,11 +28,10 @@ export async function geocodeLocation(location: string): Promise<GeocodingResult
       `&limit=1` +
       `&addressdetails=1`;
 
-    console.log('🌍 Geocoding request:', query);
+    console.log(' Geocoding request:', query);
 
     const response = await fetch(url, {
       headers: {
-        // Nominatim wymaga User-Agent (zasady użytkowania)
         'User-Agent': 'LokalMarket-App/1.0',
       },
     });
@@ -52,13 +43,13 @@ export async function geocodeLocation(location: string): Promise<GeocodingResult
     const data: NominatimResult[] = await response.json();
 
     if (data.length === 0) {
-      console.warn('⚠️ Nie znaleziono lokalizacji dla:', location);
+      console.warn(' Nie znaleziono lokalizacji dla:', location);
       return null;
     }
 
     const result = data[0];
     
-    console.log('✅ Geocoding success:', {
+    console.log(' Geocoding success:', {
       location,
       latitude: parseFloat(result.lat),
       longitude: parseFloat(result.lon),
@@ -71,15 +62,12 @@ export async function geocodeLocation(location: string): Promise<GeocodingResult
       displayName: result.display_name,
     };
   } catch (error) {
-    console.error('❌ Geocoding error:', error);
+    console.error(' Geocoding error:', error);
     return null;
   }
 }
 
-/**
- * Fallback - próbuje znaleźć miasto w lokalnej liście polskich miast
- * Używane gdy Nominatim nie działa
- */
+/* fallback */
 const POLISH_CITIES_FALLBACK = [
   { name: 'Warszawa', lat: 52.2297, lon: 21.0122 },
   { name: 'Kraków', lat: 50.0647, lon: 19.9450 },
@@ -103,11 +91,7 @@ const POLISH_CITIES_FALLBACK = [
   { name: 'Zabrze', lat: 50.3249, lon: 18.7855 },
 ];
 
-/**
- * Geocoding z automatycznym fallbackiem na lokalną listę
- * @param location - Nazwa lokalizacji
- * @returns Współrzędne lub null
- */
+
 export async function geocodeLocationWithFallback(location: string): Promise<GeocodingResult | null> {
   // Najpierw spróbuj Nominatim
   const result = await geocodeLocation(location);
@@ -117,7 +101,7 @@ export async function geocodeLocationWithFallback(location: string): Promise<Geo
   }
 
   // Fallback: szukaj w lokalnej liście
-  console.log('🔄 Fallback: Szukam w lokalnej liście miast...');
+  console.log(' Fallback: Szukam w lokalnej liście miast...');
   
   const normalizedLocation = location.toLowerCase().trim();
   const city = POLISH_CITIES_FALLBACK.find(
@@ -125,7 +109,7 @@ export async function geocodeLocationWithFallback(location: string): Promise<Geo
   );
 
   if (city) {
-    console.log('✅ Znaleziono w lokalnej liście:', city.name);
+    console.log(' Znaleziono w lokalnej liście:', city.name);
     return {
       latitude: city.lat,
       longitude: city.lon,
@@ -133,6 +117,6 @@ export async function geocodeLocationWithFallback(location: string): Promise<Geo
     };
   }
 
-  console.warn('❌ Nie znaleziono lokalizacji nigdzie:', location);
+  console.warn(' Nie znaleziono lokalizacji nigdzie:', location);
   return null;
 }

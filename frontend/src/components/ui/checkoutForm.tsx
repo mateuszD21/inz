@@ -30,7 +30,7 @@ export function CheckoutForm({ onSuccess, onError, amount }: CheckoutFormProps) 
     setErrorMessage('');
 
     try {
-      // Potwierdź płatność
+      // Potwierdzenie płatnosci
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -43,7 +43,7 @@ export function CheckoutForm({ onSuccess, onError, amount }: CheckoutFormProps) 
         setErrorMessage(error.message || 'Wystąpił błąd podczas płatności');
         onError(error.message || 'Błąd płatności');
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-        console.log('✅ Płatność zakończona sukcesem:', paymentIntent.id);
+        console.log(' Płatność zakończona sukcesem:', paymentIntent.id);
         onSuccess();
       }
     } catch (err: any) {

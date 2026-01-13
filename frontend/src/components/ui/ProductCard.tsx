@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Heart, MapPin } from "lucide-react"
+import { MapPin } from "lucide-react"
 
 interface ProductCardProps {
   id: number
@@ -23,15 +23,7 @@ export function ProductCard({ id, title, price, location, image, distance }: Pro
             alt={title}
             className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
           />
-          <button 
-            onClick={(e) => {
-              e.preventDefault()
-              console.log('Added to favorites')
-            }}
-            className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:bg-red-50 transition"
-          >
-            <Heart className="h-5 w-5 text-gray-600 hover:text-red-500" />
-          </button>
+
           {/* Tylko pokazuj badge jeśli jest prawidłowa odległość */}
           {showDistance && (
             <div className="absolute bottom-3 left-3 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">

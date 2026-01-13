@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from "@/components/ui/button"
-import { Heart, ShoppingBag, User, Menu, X, LogOut, MessageCircle, Package, ShoppingCart } from "lucide-react"
+import { ShoppingBag, User, Menu, X, LogOut, MessageCircle, Package, ShoppingCart } from "lucide-react"
 import { useAuth } from '@/contexts/AuthContext'
 
 export function Header() {
@@ -9,12 +9,37 @@ export function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const { user, logout, isAuthenticated } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleLogout = () => {
     logout()
     setUserMenuOpen(false)
     navigate('/')
   }
+
+  const handleSectionClick = (sectionId: string) => {
+  setMobileMenuOpen(false);
+  
+  if (location.pathname === '/') {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      const yOffset = -80; 
+      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+  } else {
+    navigate('/');
+    setTimeout(() => {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        const yOffset = -80; 
+        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      }
+    }, 100);
+  }
+}
+
 
   return (
     <header className="bg-white border-b sticky top-0 z-50 shadow-sm">
@@ -29,29 +54,29 @@ export function Header() {
             <Link to="/produkty" className="text-gray-700 hover:text-blue-600 transition">
               Kategorie
             </Link>
-            <Link to="#" className="text-gray-700 hover:text-blue-600 transition">
+            { }
+            <button 
+              onClick={() => handleSectionClick('jak-dziala')}
+              className="text-gray-700 hover:text-blue-600 transition"
+            >
               Jak działa?
-            </Link>
-            <Link to="#" className="text-gray-700 hover:text-blue-600 transition">
+            </button>
+            <button 
+              onClick={() => handleSectionClick('o-nas')}
+              className="text-gray-700 hover:text-blue-600 transition"
+            >
               O nas
-            </Link>
+            </button>
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            {/* ✨ NOWY PRZYCISK - Wiadomości */}
             {isAuthenticated && (
               <Link to="/wiadomosci">
                 <Button variant="ghost" size="icon" className="relative">
                   <MessageCircle className="h-5 w-5" />
-                  {/* Opcjonalnie: badge z liczbą nieprzeczytanych */}
-                  {/* <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span> */}
                 </Button>
               </Link>
-            )}
-
-            <Button variant="ghost" size="icon">
-              <Heart className="h-5 w-5" />
-            </Button>
+            )}     
             
             {isAuthenticated ? (
               <div className="relative">
@@ -95,7 +120,6 @@ export function Header() {
                         Moje ogłoszenia
                       </div>
                     </Link>
-                    {/* ✨ NOWY LINK - Transakcje */}
                     <Link
                       to="/transakcje"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -106,7 +130,6 @@ export function Header() {
                         Moje transakcje
                       </div>
                     </Link>
-                    {/* ✨ NOWY LINK - Wiadomości */}
                     <Link
                       to="/wiadomosci"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -117,16 +140,7 @@ export function Header() {
                         Wiadomości
                       </div>
                     </Link>
-                    <Link
-                      to="/ulubione"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Heart className="h-4 w-4" />
-                        Ulubione
-                      </div>
-                    </Link>
+
                     <hr className="my-1" />
                     <button
                       onClick={handleLogout}
@@ -171,20 +185,19 @@ export function Header() {
               >
                 Kategorie
               </Link>
-              <Link 
-                to="#" 
-                className="text-gray-700 hover:text-blue-600 transition"
-                onClick={() => setMobileMenuOpen(false)}
+              {}
+              <button 
+                onClick={() => handleSectionClick('jak-dziala')}
+                className="text-left text-gray-700 hover:text-blue-600 transition"
               >
                 Jak działa?
-              </Link>
-              <Link 
-                to="#" 
-                className="text-gray-700 hover:text-blue-600 transition"
-                onClick={() => setMobileMenuOpen(false)}
+              </button>
+              <button 
+                onClick={() => handleSectionClick('o-nas')}
+                className="text-left text-gray-700 hover:text-blue-600 transition"
               >
                 O nas
-              </Link>
+              </button>
               
               {isAuthenticated ? (
                 <>
@@ -205,7 +218,6 @@ export function Header() {
                     <Package className="h-4 w-4" />
                     Moje ogłoszenia
                   </Link>
-                  {/* ✨ NOWY LINK mobile - Transakcje */}
                   <Link
                     to="/transakcje"
                     className="text-gray-700 hover:text-blue-600 transition flex items-center gap-2"
@@ -214,7 +226,6 @@ export function Header() {
                     <ShoppingCart className="h-4 w-4" />
                     Moje transakcje
                   </Link>
-                  {/* ✨ NOWY LINK mobile - Wiadomości */}
                   <Link
                     to="/wiadomosci"
                     className="text-gray-700 hover:text-blue-600 transition flex items-center gap-2"

@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { ShoppingCart, Package, CheckCircle, XCircle, Clock, Eye, MessageCircle, Star } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { transactionApi } from '../services/api';
+import { transactionApi, reviewApi } from '../services/api';
 import { Transaction } from '../types';
+import { ConfirmModal } from '../components/ui/confirmmodal';
+import { AlertModal } from '../components/ui/alertmodal';
 
 export function MyTransactions() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -14,6 +16,34 @@ export function MyTransactions() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'buyer' | 'seller'>('buyer');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  
+  const [reviewedTransactions, setReviewedTransactions] = useState<Set<number>>(new Set());
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    type: 'complete' | 'cancel' | null; 
+    transactionId: number | null;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: null,
+    transactionId: null,
+    title: '',
+    message: '',
+  });
+
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: '',
+  });
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -32,6 +62,8 @@ export function MyTransactions() {
       const response = await transactionApi.getMyTransactions();
       setAsBuyer(response.data.asBuyer);
       setAsSeller(response.data.asSeller);
+      
+      await checkReviewsStatus(response.data.asBuyer);
     } catch (error) {
       console.error('Błąd pobierania transakcji:', error);
     } finally {
@@ -39,49 +71,97 @@ export function MyTransactions() {
     }
   };
 
-  // Akcje dla sprzedającego
-  const handleAccept = async (transactionId: number) => {
-    setActionLoading(transactionId);
-    try {
-      await transactionApi.accept(transactionId);
-      await fetchTransactions();
-      alert('Transakcja zaakceptowana!');
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Błąd akceptacji transakcji');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleComplete = async (transactionId: number) => {
-    if (!window.confirm('Czy na pewno chcesz oznaczyć tę transakcję jako ukończoną? Produkt zostanie oznaczony jako sprzedany.')) {
-      return;
+  const checkReviewsStatus = async (transactions: Transaction[]) => {
+    const reviewed = new Set<number>();
+    
+    for (const transaction of transactions) {
+      if (transaction.status === 'completed') {
+        try {
+          const response = await reviewApi.canReview(transaction.id);
+          if (!response.data.canReview) {
+            reviewed.add(transaction.id);
+          }
+        } catch (error) {
+          console.error(`Błąd sprawdzania opinii dla transakcji ${transaction.id}:`, error);
+        }
+      }
     }
     
-    setActionLoading(transactionId);
-    try {
-      await transactionApi.complete(transactionId);
-      await fetchTransactions();
-      alert('Transakcja ukończona! Produkt został oznaczony jako sprzedany.');
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Błąd ukończenia transakcji');
-    } finally {
-      setActionLoading(null);
-    }
+    setReviewedTransactions(reviewed);
   };
 
-  const handleCancel = async (transactionId: number) => {
-    if (!window.confirm('Czy na pewno chcesz anulować tę transakcję?')) {
-      return;
-    }
+  // komunikat potwierdzenia
+  const handleCompleteClick = (transactionId: number) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'complete',
+      transactionId,
+      title: 'Zakończ transakcję',
+      message: 'Czy na pewno chcesz zakończyć tę transakcję? Produkt zostanie oznaczony jako sprzedany i kupujący będzie mógł dodać opinię.',
+    });
+  };
+
+  const handleCancelClick = (transactionId: number) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'cancel',
+      transactionId,
+      title: 'Anuluj transakcję',
+      message: 'Czy na pewno chcesz anulować tę transakcję? Tej operacji nie można cofnąć.',
+    });
+  };
+
+  // akcja po akceptacji
+  const handleConfirmAction = async () => {
+    if (!confirmModal.transactionId || !confirmModal.type) return;
+
+    setActionLoading(confirmModal.transactionId);
     
-    setActionLoading(transactionId);
     try {
-      await transactionApi.cancel(transactionId);
+      let successMessage = '';
+      
+      switch (confirmModal.type) {
+        case 'complete':
+          await transactionApi.complete(confirmModal.transactionId);
+          successMessage = 'Transakcja została ukończona! Produkt jest teraz oznaczony jako sprzedany.';
+          break;
+        case 'cancel':
+          await transactionApi.cancel(confirmModal.transactionId);
+          successMessage = 'Transakcja została anulowana.';
+          break;
+      }
+
       await fetchTransactions();
-      alert('Transakcja anulowana');
+      
+      setConfirmModal({
+        isOpen: false,
+        type: null,
+        transactionId: null,
+        title: '',
+        message: '',
+      });
+
+      setAlertModal({
+        isOpen: true,
+        type: 'success',
+        title: 'Sukces!',
+        message: successMessage,
+      });
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Błąd anulowania transakcji');
+      setConfirmModal({
+        isOpen: false,
+        type: null,
+        transactionId: null,
+        title: '',
+        message: '',
+      });
+
+      setAlertModal({
+        isOpen: true,
+        type: 'error',
+        title: 'Błąd',
+        message: error.response?.data?.error || 'Wystąpił błąd podczas przetwarzania transakcji. Spróbuj ponownie.',
+      });
     } finally {
       setActionLoading(null);
     }
@@ -93,11 +173,6 @@ export function MyTransactions() {
         text: 'Oczekująca',
         icon: Clock,
         class: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      },
-      accepted: {
-        text: 'Zaakceptowana',
-        icon: CheckCircle,
-        class: 'bg-blue-100 text-blue-700 border-blue-200',
       },
       completed: {
         text: 'Ukończona',
@@ -154,7 +229,6 @@ export function MyTransactions() {
               Zarządzaj swoimi zakupami i sprzedażą
             </p>
           </div>
-          {/* ✨ NOWY PRZYCISK - Link do wiadomości */}
           <Link to="/wiadomosci">
             <Button variant="outline" className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5" />
@@ -223,6 +297,7 @@ export function MyTransactions() {
               const isBuyer = activeTab === 'buyer';
               const otherUser = isBuyer ? transaction.product.user : transaction.buyer;
               const isActionPending = actionLoading === transaction.id;
+              const hasReview = reviewedTransactions.has(transaction.id);
 
               return (
                 <div
@@ -230,7 +305,7 @@ export function MyTransactions() {
                   className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition"
                 >
                   <div className="flex flex-col md:flex-row">
-                    {/* Zdjęcie produktu */}
+                    {}
                     <div className="md:w-48 h-48 md:h-auto flex-shrink-0">
                       <img
                         src={transaction.product.images[0] || 'https://via.placeholder.com/400x300'}
@@ -239,7 +314,7 @@ export function MyTransactions() {
                       />
                     </div>
 
-                    {/* Treść */}
+                    {}
                     <div className="flex-1 p-6">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
@@ -264,25 +339,19 @@ export function MyTransactions() {
                         <span>📍 {transaction.product.location}</span>
                       </div>
 
-                      {/* Info o statusie */}
+                      {}
                       <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
                         {transaction.status === 'pending' && (
                           <p className="text-gray-700">
                             {isBuyer 
-                              ? '⏳ Czekaj na odpowiedź sprzedającego'
-                              : '👋 Nowy kupujący jest zainteresowany! Zaakceptuj lub anuluj transakcję.'}
-                          </p>
-                        )}
-                        {transaction.status === 'accepted' && (
-                          <p className="text-gray-700">
-                            {isBuyer
-                              ? '✅ Sprzedający zaakceptował transakcję! Możesz się z nim skontaktować.'
-                              : '✅ Transakcja zaakceptowana. Po dostarczeniu produktu oznacz jako ukończoną.'}
+                              ? '⏳ Czekaj na potwierdzenie sprzedającego. Możesz się z nim skontaktować.'
+                              : '👋 Nowy kupujący jest zainteresowany! Skontaktuj się z nim i zakończ transakcję po dostarczeniu produktu.'}
                           </p>
                         )}
                         {transaction.status === 'completed' && (
                           <p className="text-gray-700">
-                            ✅ Transakcja ukończona! {isBuyer && 'Możesz teraz dodać opinię o sprzedającym.'}
+                            ✅ Transakcja ukończona! {isBuyer && !hasReview && 'Możesz teraz dodać opinię o sprzedającym.'}
+                            {isBuyer && hasReview && 'Dziękujemy za dodanie opinii!'}
                           </p>
                         )}
                         {transaction.status === 'cancelled' && (
@@ -292,7 +361,7 @@ export function MyTransactions() {
                         )}
                       </div>
 
-                      {/* Akcje */}
+                      {}
                       <div className="flex flex-wrap gap-2">
                         <Link to={`/produkt/${transaction.product.id}`}>
                           <Button variant="outline" size="sm">
@@ -301,7 +370,6 @@ export function MyTransactions() {
                           </Button>
                         </Link>
 
-                        {/* ✨ NOWY PRZYCISK - Napisz wiadomość */}
                         <Link to={`/wiadomosci/${otherUser.id}`}>
                           <Button variant="outline" size="sm" className="text-blue-600 border-blue-600 hover:bg-blue-50">
                             <MessageCircle className="h-4 w-4 mr-2" />
@@ -309,56 +377,45 @@ export function MyTransactions() {
                           </Button>
                         </Link>
 
-                        {/* ⭐ NOWY PRZYCISK - Dodaj opinię (tylko dla kupującego po ukończeniu) */}
                         {isBuyer && transaction.status === 'completed' && (
-                          <Link to={`/opinia/${transaction.id}`}>
-                            <Button variant="outline" size="sm" className="text-yellow-600 border-yellow-600 hover:bg-yellow-50">
-                              <Star className="h-4 w-4 mr-2" />
-                              Dodaj opinię
-                            </Button>
-                          </Link>
+                          <>
+                            {hasReview ? (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                disabled
+                                className="text-gray-500 border-gray-300 cursor-not-allowed"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Opinia już dodana
+                              </Button>
+                            ) : (
+                              <Link to={`/opinia/${transaction.id}`}>
+                                <Button variant="outline" size="sm" className="text-yellow-600 border-yellow-600 hover:bg-yellow-50">
+                                  <Star className="h-4 w-4 mr-2" />
+                                  Dodaj opinię
+                                </Button>
+                              </Link>
+                            )}
+                          </>
                         )}
 
-                        {/* Akcje dla sprzedającego */}
+                        {}
                         {!isBuyer && (
                           <>
                             {transaction.status === 'pending' && (
                               <>
                                 <Button
-                                  onClick={() => handleAccept(transaction.id)}
+                                  onClick={() => handleCompleteClick(transaction.id)}
                                   disabled={isActionPending}
                                   size="sm"
                                   className="bg-green-600 hover:bg-green-700"
                                 >
                                   <CheckCircle className="h-4 w-4 mr-2" />
-                                  {isActionPending ? 'Akceptowanie...' : 'Zaakceptuj'}
+                                  {isActionPending ? 'Kończenie...' : 'Zakończ transakcję'}
                                 </Button>
                                 <Button
-                                  onClick={() => handleCancel(transaction.id)}
-                                  disabled={isActionPending}
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-red-600 border-red-600 hover:bg-red-50"
-                                >
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  Anuluj
-                                </Button>
-                              </>
-                            )}
-
-                            {transaction.status === 'accepted' && (
-                              <>
-                                <Button
-                                  onClick={() => handleComplete(transaction.id)}
-                                  disabled={isActionPending}
-                                  size="sm"
-                                  className="bg-blue-600 hover:bg-blue-700"
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                  {isActionPending ? 'Oznaczanie...' : 'Oznacz jako ukończone'}
-                                </Button>
-                                <Button
-                                  onClick={() => handleCancel(transaction.id)}
+                                  onClick={() => handleCancelClick(transaction.id)}
                                   disabled={isActionPending}
                                   variant="outline"
                                   size="sm"
@@ -375,7 +432,7 @@ export function MyTransactions() {
                         {/* Akcje dla kupującego */}
                         {isBuyer && transaction.status !== 'completed' && transaction.status !== 'cancelled' && (
                           <Button
-                            onClick={() => handleCancel(transaction.id)}
+                            onClick={() => handleCancelClick(transaction.id)}
                             disabled={isActionPending}
                             variant="outline"
                             size="sm"
@@ -385,8 +442,6 @@ export function MyTransactions() {
                             {isActionPending ? 'Anulowanie...' : 'Anuluj transakcję'}
                           </Button>
                         )}
-
-          
                       </div>
                     </div>
                   </div>
@@ -396,9 +451,9 @@ export function MyTransactions() {
           </div>
         )}
 
-        {/* Statystyki */}
+        {/* statystyki */}
         {(asBuyer.length > 0 || asSeller.length > 0) && (
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -408,20 +463,6 @@ export function MyTransactions() {
                   <p className="text-sm text-gray-600">Oczekujące</p>
                   <p className="text-2xl font-bold text-gray-900">
                     {transactions.filter(t => t.status === 'pending').length}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <CheckCircle className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Zaakceptowane</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {transactions.filter(t => t.status === 'accepted').length}
                   </p>
                 </div>
               </div>
@@ -457,6 +498,28 @@ export function MyTransactions() {
           </div>
         )}
       </div>
+
+      {}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, type: null, transactionId: null, title: '', message: '' })}
+        onConfirm={handleConfirmAction}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.type === 'complete' ? 'Zakończ transakcję' : 'Anuluj transakcję'}
+        cancelText="Cofnij"
+        variant={confirmModal.type === 'cancel' ? 'danger' : 'success'}
+        isLoading={actionLoading !== null}
+      />
+
+      {}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }

@@ -48,7 +48,56 @@ export const register = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Błąd podczas rejestracji' });
   }
 };
+export const changePassword = async (req: Request, res: Response) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'Brak autoryzacji' });
+    }
 
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
+    const userId = decoded.userId;
+
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Podaj aktualne i nowe hasło' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Nowe hasło musi mieć minimum 6 znaków' });
+    }
+
+    // Pobierz użytkownika
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
+    }
+
+    // Sprawdź aktualne hasło
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ error: 'Nieprawidłowe aktualne hasło' });
+    }
+
+    // Zahashuj nowe hasło
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Zaktualizuj hasło
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    res.json({ message: 'Hasło zostało zmienione' });
+  } catch (error) {
+    console.error('Błąd zmiany hasła:', error);
+    res.status(500).json({ error: 'Błąd zmiany hasła' });
+  }
+};
 // Logowanie
 export const login = async (req: Request, res: Response) => {
   try {
@@ -176,7 +225,7 @@ export const updateProfile = async (req: Request, res: Response) => {
   }
 };
 
-// ⭐ ZAKTUALIZOWANE - Pobierz dane użytkownika po ID (publiczne dane)
+// Pobierz dane użytkownika po ID (publiczne dane)
 export const getUserById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

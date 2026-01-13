@@ -1,5 +1,3 @@
-// Fragment do dodania/zaktualizowania w pliku frontend/src/services/api.ts
-
 import axios from 'axios';
 
 const API_URL = 'http://localhost:3000/api';
@@ -24,7 +22,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor - loguje odpowiedzi
 api.interceptors.response.use(
   (response) => {
     console.log('API Response:', response.status, response.config.url);
@@ -36,7 +33,6 @@ api.interceptors.response.use(
   }
 );
 
-// ✨ ZAKTUALIZOWANE - Products API z wyszukiwaniem po lokalizacji
 export const productApi = {
   getAll: () => api.get('/products'),
   getById: (id: number) => api.get(`/products/${id}`),
@@ -45,14 +41,7 @@ export const productApi = {
   update: (id: number, data: any) => api.put(`/products/${id}`, data),
   delete: (id: number) => api.delete(`/products/${id}`),
   
-  // ✨ NOWA METODA - Wyszukiwanie po lokalizacji
-  // Przykłady użycia:
-  // 1. Po mieście: searchByLocation(new URLSearchParams({ city: 'Warszawa', radius: '50' }))
-  // 2. Po współrzędnych: searchByLocation(new URLSearchParams({ 
-  //      latitude: '52.2297', 
-  //      longitude: '21.0122', 
-  //      radius: '50' 
-  //    }))
+  
   searchByLocation: (params: URLSearchParams) => 
     api.get(`/products/search?${params.toString()}`),
 };
@@ -64,6 +53,8 @@ export const authApi = {
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.put('/auth/change-password', data),
 };
 
 // User

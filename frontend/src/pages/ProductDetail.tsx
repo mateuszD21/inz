@@ -15,7 +15,6 @@ export function ProductDetail() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   
-  // ⭐ NOWE - Opinie o sprzedającym
   const [sellerReviews, setSellerReviews] = useState<any[]>([]);
   const [sellerStats, setSellerStats] = useState({
     totalReviews: 0,
@@ -23,7 +22,6 @@ export function ProductDetail() {
   });
   const [showAllReviews, setShowAllReviews] = useState(false);
   
-  // Stan dla transakcji
   const [buyingInProgress, setBuyingInProgress] = useState(false);
   const [buySuccess, setBuySuccess] = useState(false);
   const [buyError, setBuyError] = useState('');
@@ -40,7 +38,6 @@ export function ProductDetail() {
       const productData = response.data;
       setProduct(productData);
       
-      // ⭐ Pobierz opinie o sprzedającym
       await fetchSellerReviews(productData.user.id);
     } catch (error) {
       console.error('Błąd pobierania produktu:', error);
@@ -49,7 +46,6 @@ export function ProductDetail() {
     }
   };
 
-  // ⭐ NOWA FUNKCJA - Pobierz opinie o sprzedającym
   const fetchSellerReviews = async (sellerId: number) => {
     try {
       // Pobierz statystyki
@@ -101,7 +97,7 @@ export function ProductDetail() {
 
     if (!product) return;
 
-    // Sprawdź czy to nie jest własny produkt
+ 
     if (user?.id === product.user.id) {
       alert('Nie możesz kupić własnego produktu!');
       return;
@@ -120,7 +116,6 @@ export function ProductDetail() {
       
       setBuySuccess(true);
       
-      // Po 3 sekundach ukryj komunikat sukcesu
       setTimeout(() => {
         setBuySuccess(false);
       }, 3000);
@@ -133,7 +128,6 @@ export function ProductDetail() {
     }
   };
 
-  // ⭐ NOWA FUNKCJA - Renderowanie gwiazdek
   const renderStars = (rating: number, size: 'sm' | 'md' | 'lg' = 'md') => {
     const sizeClasses = {
       sm: 'h-3 w-3',
@@ -326,7 +320,7 @@ export function ProductDetail() {
               </div>
             </div>
 
-            {/* ⭐ NOWA SEKCJA - Opinie o sprzedającym */}
+            {/* opinie o sprzedajacym */}
             <div className="bg-white rounded-lg shadow-md p-6 mt-6">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
@@ -343,7 +337,7 @@ export function ProductDetail() {
                 </div>
               ) : (
                 <>
-                  {/* Podsumowanie ocen */}
+                  {/* podsumowanie  */}
                   <div className="bg-blue-50 rounded-lg p-6 mb-6">
                     <div className="flex flex-col sm:flex-row items-center gap-6">
                       <div className="text-center">
@@ -446,16 +440,16 @@ export function ProductDetail() {
             </div>
           </div>
 
-          {/* Right Column - Purchase Info */}
+          {}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
-              {/* Price */}
+              {}
               <div className="mb-6">
                 <p className="text-sm text-gray-600 mb-1">Cena</p>
                 <p className="text-4xl font-bold text-blue-600">{product.price} zł</p>
               </div>
 
-              {/* Komunikaty o transakcji */}
+              {}
               {buySuccess && (
                 <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center gap-2 text-green-800">
@@ -474,7 +468,7 @@ export function ProductDetail() {
                 </div>
               )}
 
-              {/* Seller Info */}
+              {}
               <div className="border-t pt-6 mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Sprzedający</h3>
                 <div className="flex items-center gap-3 mb-4">
@@ -507,7 +501,7 @@ export function ProductDetail() {
                 </div>
               </div>
 
-              {/* Przyciski akcji */}
+              {}
               <div className="space-y-3">
                 {isOwnProduct ? (
                   <div className="p-4 bg-blue-50 rounded-lg text-center">
@@ -519,7 +513,7 @@ export function ProductDetail() {
                   </div>
                 ) : (
                   <>
-                    {/* Przycisk KUP - najważniejszy */}
+                    {/* przycisk kup*/}
                     <Button 
                       onClick={handleBuyProduct}
                       disabled={buyingInProgress || buySuccess}
@@ -539,18 +533,12 @@ export function ProductDetail() {
                       <MessageCircle className="mr-2 h-5 w-5" />
                       Wyślij wiadomość
                     </Button>
-                    
-                    {product.user.phone && (
-                      <Button variant="outline" className="w-full text-lg py-6">
-                        <Phone className="mr-2 h-5 w-5" />
-                        Zadzwoń
-                      </Button>
-                    )}
+
                   </>
                 )}
               </div>
 
-              {/* Safety Tips */}
+              {}
               <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                 <div className="flex items-start gap-2">
                   <Shield className="h-5 w-5 text-blue-600 mt-0.5" />

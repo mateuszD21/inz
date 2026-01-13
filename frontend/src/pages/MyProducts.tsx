@@ -5,13 +5,31 @@ import { Edit, Trash2, Eye, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { productApi } from '@/services/api';
 import { Product } from '@/types';
+import { ConfirmModal } from '@/components/ui/confirmmodal';
+import { AlertModal } from '@/components/ui/alertmodal';
 
 export function MyProducts() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; productId: number | null }>({
+    isOpen: false,
+    productId: null,
+  });
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: '',
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -36,17 +54,41 @@ export function MyProducts() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Czy na pewno chcesz usunąć to ogłoszenie?')) {
-      return;
-    }
+  const handleDeleteClick = (id: number) => {
+    setDeleteModal({ isOpen: true, productId: id });
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.productId) return;
+
+    setIsDeleting(true);
     try {
-      await productApi.delete(id);
-      setProducts(products.filter(p => p.id !== id));
+      await productApi.delete(deleteModal.productId);
+      setProducts(products.filter(p => p.id !== deleteModal.productId));
+      
+      setDeleteModal({ isOpen: false, productId: null });
+      
+      // komunikat sukcesu
+      setAlertModal({
+        isOpen: true,
+        type: 'success',
+        title: 'Ogłoszenie usunięte',
+        message: 'Twoje ogłoszenie zostało pomyślnie usunięte.',
+      });
     } catch (error) {
       console.error('Błąd usuwania ogłoszenia:', error);
-      alert('Nie udało się usunąć ogłoszenia');
+      
+      setDeleteModal({ isOpen: false, productId: null });
+      
+      // komunikaty bledu
+      setAlertModal({
+        isOpen: true,
+        type: 'error',
+        title: 'Błąd',
+        message: 'Nie udało się usunąć ogłoszenia. Spróbuj ponownie.',
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -156,7 +198,7 @@ export function MyProducts() {
                     </div>
                   </div>
 
-                  {/* Akcje */}
+                  {/* przyciski akcji */}
                   <div className="border-t md:border-t-0 md:border-l border-gray-200 p-4 md:w-48 flex md:flex-col gap-2">
                     <Link to={`/produkt/${product.id}`} className="flex-1 md:flex-none">
                       <Button variant="outline" className="w-full">
@@ -172,7 +214,7 @@ export function MyProducts() {
                     </Link>
                     <Button
                       variant="outline"
-                      onClick={() => handleDelete(product.id)}
+                      onClick={() => handleDeleteClick(product.id)}
                       className="w-full text-red-600 border-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
@@ -230,6 +272,28 @@ export function MyProducts() {
           </div>
         )}
       </div>
+
+      {/* potwierdzenie usunięcia */}
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, productId: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Usuń ogłoszenie"
+        message="Czy na pewno chcesz usunąć to ogłoszenie? Ta operacja jest nieodwracalna."
+        confirmText="Usuń"
+        cancelText="Anuluj"
+        variant="danger"
+        isLoading={isDeleting}
+      />
+
+      {/* alert */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }

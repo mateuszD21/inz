@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Star, ArrowLeft } from 'lucide-react';
+import { Star, ArrowLeft, CheckCircle, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { reviewApi } from '../services/api';
@@ -17,6 +17,11 @@ export function AddReview() {
   const [canReview, setCanReview] = useState(false);
   const [checkingPermission, setCheckingPermission] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  
+  // NOWY STATE - dla modala sukcesu
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalErrorMessage, setModalErrorMessage] = useState('');
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -52,7 +57,8 @@ export function AddReview() {
     e.preventDefault();
 
     if (rating === 0) {
-      alert('Wybierz ocenę');
+      setModalErrorMessage('Wybierz ocenę przed dodaniem opinii');
+      setShowErrorModal(true);
       return;
     }
 
@@ -64,11 +70,15 @@ export function AddReview() {
         comment: comment.trim() || undefined,
       });
 
-      alert('Opinia została dodana!');
-      navigate('/transakcje');
+      // okienko sukcesu
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        navigate('/transakcje');
+      }, 2000);
     } catch (error: any) {
       console.error('Błąd dodawania opinii:', error);
-      alert(error.response?.data?.error || 'Nie udało się dodać opinii');
+      setModalErrorMessage(error.response?.data?.error || 'Nie udało się dodać opinii');
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -197,6 +207,53 @@ export function AddReview() {
           </form>
         </div>
       </div>
+
+      {/* MODAL SUKCESU */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-8 transform animate-in fade-in zoom-in duration-200">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="h-10 w-10 text-green-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                Opinia dodana!
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Dziękujemy za podzielenie się swoją opinią
+              </p>
+              <p className="text-sm text-gray-500">
+                Za chwilę zostaniesz przekierowany...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL BŁĘDU */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-8 transform animate-in fade-in zoom-in duration-200">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <X className="h-10 w-10 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                Błąd
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {modalErrorMessage}
+              </p>
+              <Button
+                onClick={() => setShowErrorModal(false)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                OK
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

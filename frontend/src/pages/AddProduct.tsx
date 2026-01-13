@@ -27,7 +27,13 @@ const categories = [
   'Inne',
 ];
 
-const conditions = ['Nowe', 'Używane - Bardzo dobry', 'Używane - Dobry', 'Używane - Zadowalający'];
+const conditions = [
+  'Nowy',
+  'Jak nowy',
+  'Bardzo dobry',
+  'Dobry',
+  'Zadowalający'
+];
 
 export function AddProduct() {
   const navigate = useNavigate();
@@ -134,8 +140,8 @@ export function AddProduct() {
       return;
     }
 
-    // 🆕 GEOCODING - konwertuj lokalizację na współrzędne GPS
-    console.log('🌍 Geocoding lokalizacji:', formData.location);
+    // konwertuje lokalizacje na wspolrzedne 
+    console.log('Geocoding lokalizacji:', formData.location);
     setLoadingLocation(true);
     
     const geocoded = await geocodeLocationWithFallback(formData.location);
@@ -159,13 +165,12 @@ export function AddProduct() {
     setShowPaymentModal(true);
   };
 
-  // ✅ UPROSZCZONE - PaymentModal teraz obsługuje wszystko
+  // Bezpośrednie przekierowanie na stronę główną bez alertu
   const handlePaymentSuccess = (productId: number) => {
-    alert('Ogłoszenie zostało dodane pomyślnie!');
     navigate('/');
   };
 
-  // ✅ Dane produktu do przekazania do PaymentModal
+  // Dane produktu do przekazania do PaymentModal
   const productDataForPayment = {
     title: formData.title,
     description: formData.description,
@@ -394,7 +399,7 @@ export function AddProduct() {
         </div>
       </div>
 
-      {/* ✅ Modal płatności z przekazanymi zdjęciami */}
+      {/* Modal płatności z przekazanymi zdjęciami */}
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}

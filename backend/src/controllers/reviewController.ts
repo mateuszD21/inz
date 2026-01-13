@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'super_tajny_klucz_jwt_abc123';
 
-// Helper function do weryfikacji tokenu
+// Funkcja do weryfikacji tokenu
 const verifyToken = (req: Request): number | null => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -18,7 +18,7 @@ const verifyToken = (req: Request): number | null => {
   }
 };
 
-// ⭐ Dodaj opinię o sprzedającym (tylko kupujący po ukończonej transakcji)
+// Dodawanie opini o sprzedającym
 export const createReview = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);
@@ -38,7 +38,6 @@ export const createReview = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Ocena musi być od 1 do 5' });
     }
 
-    // Pobierz transakcję
     const transaction = await prisma.transaction.findUnique({
       where: { id: parseInt(transactionId) },
       include: {
@@ -50,17 +49,18 @@ export const createReview = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Transakcja nie znaleziona' });
     }
 
-    // Sprawdź czy user jest kupującym
+    // Sprawdzanie czy user jest kupujacym
     if (transaction.buyerId !== userId) {
       return res.status(403).json({ error: 'Tylko kupujący może dodać opinię' });
     }
 
-    // Sprawdź czy transakcja jest ukończona
+    // sprawdzanie czy transakcja jest ukończona
     if (transaction.status !== 'completed') {
       return res.status(400).json({ error: 'Możesz dodać opinię tylko po ukończeniu transakcji' });
     }
 
-    // Sprawdź czy opinia już istnieje
+    // sprawdzanie czy opinia istnieje
+
     const existingReview = await prisma.review.findUnique({
       where: {
         transactionId: parseInt(transactionId),
@@ -71,7 +71,7 @@ export const createReview = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Opinia została już dodana dla tej transakcji' });
     }
 
-    // Utwórz opinię
+    // tworzenie opini
     const review = await prisma.review.create({
       data: {
         rating: parseInt(rating),
@@ -109,14 +109,14 @@ export const createReview = async (req: Request, res: Response) => {
   }
 };
 
-// 📋 Pobierz opinie o użytkowniku (sprzedającym)
+// pobieranie opini o sprzedającym
 export const getUserReviews = async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
     const reviews = await prisma.review.findMany({
       where: {
-        reviewedUserId: parseInt(userId), // opinie o tym użytkowniku
+        reviewedUserId: parseInt(userId),
       },
       include: {
         reviewer: {
@@ -143,7 +143,7 @@ export const getUserReviews = async (req: Request, res: Response) => {
       },
     });
 
-    // Oblicz średnią ocen
+    // obliczanie średniej ocen
     const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
     const averageRating = reviews.length > 0 ? totalRating / reviews.length : 0;
 
@@ -160,7 +160,7 @@ export const getUserReviews = async (req: Request, res: Response) => {
   }
 };
 
-// 📊 Pobierz statystyki opinii użytkownika
+// pobieranie statystyk opinii użytkownika
 export const getUserReviewStats = async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -178,7 +178,6 @@ export const getUserReviewStats = async (req: Request, res: Response) => {
     const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
     const averageRating = totalReviews > 0 ? totalRating / totalReviews : 0;
 
-    // Zlicz oceny według gwiazdek
     const ratingDistribution = {
       5: reviews.filter(r => r.rating === 5).length,
       4: reviews.filter(r => r.rating === 4).length,
@@ -198,7 +197,7 @@ export const getUserReviewStats = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ Sprawdź czy można dodać opinię dla transakcji
+// Sprawdź czy można dodać opinię dla transakcji
 export const canReview = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);
@@ -251,7 +250,7 @@ export const canReview = async (req: Request, res: Response) => {
   }
 };
 
-// 🗑️ Usuń opinię (tylko autor)
+// Usuwanie opini tylko autor
 export const deleteReview = async (req: Request, res: Response) => {
   try {
     const userId = verifyToken(req);
@@ -270,7 +269,6 @@ export const deleteReview = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Opinia nie znaleziona' });
     }
 
-    // Sprawdź czy user jest autorem opinii
     if (review.reviewerId !== userId) {
       return res.status(403).json({ error: 'Nie możesz usunąć cudzej opinii' });
     }
