@@ -457,7 +457,7 @@ export function ProductDetail() {
                     <p className="font-semibold">Transakcja rozpoczęta!</p>
                   </div>
                   <p className="text-sm text-green-700 mt-1">
-                    Sprzedający został powiadomiony. Możesz teraz napisać wiadomość.
+                    Sprzedający został powiadomiony.
                   </p>
                 </div>
               )}

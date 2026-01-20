@@ -120,12 +120,6 @@ export function MyProducts() {
               Zarządzaj swoimi ogłoszeniami ({products.length})
             </p>
           </div>
-          <Link to="/dodaj">
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-5 w-5 mr-2" />
-              Dodaj ogłoszenie
-            </Button>
-          </Link>
         </div>
 
         {/* Lista ogłoszeń */}
@@ -224,51 +218,6 @@ export function MyProducts() {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Statystyki */}
-        {products.length > 0 && (
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <span className="text-2xl">✅</span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Aktywne</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {products.filter(p => p.status === 'active').length}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <span className="text-2xl">👁️</span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Wyświetlenia</p>
-                  <p className="text-2xl font-bold text-gray-900">0</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <span className="text-2xl">💰</span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Łączna wartość</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {products.reduce((sum, p) => sum + p.price, 0)} zł
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </div>

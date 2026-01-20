@@ -114,38 +114,35 @@ export function EditProduct() {
   };
 
   const uploadImages = async () => {
-    if (imageFiles.length === 0) return [];
+  if (imageFiles.length === 0) return [];
 
-    setUploadingImages(true);
-    const uploadedUrls: string[] = [];
+  setUploadingImages(true);
 
-    try {
-      for (const file of imageFiles) {
-        const formData = new FormData();
-        formData.append('image', file);
+  try {
+    const uploadFormData = new FormData();
+    imageFiles.forEach((file) => {
+      uploadFormData.append('images', file);
+    });
 
-        const response = await fetch('http://localhost:3000/api/upload/image', {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
+    const response = await fetch('http://localhost:3000/api/upload/images', {
+      method: 'POST',
+      body: uploadFormData,
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
 
-        if (!response.ok) throw new Error('Błąd uploadu');
+    if (!response.ok) throw new Error('Błąd uploadu');
 
-        const data = await response.json();
-        uploadedUrls.push(`http://localhost:3000${data.url}`);
-      }
-
-      return uploadedUrls;
-    } catch (error) {
-      console.error('Błąd uploadu zdjęć:', error);
-      throw error;
-    } finally {
-      setUploadingImages(false);
-    }
-  };
+    const data = await response.json();
+    return data.urls.map((url: string) => `http://localhost:3000${url}`);
+  } catch (error) {
+    console.error('Błąd uploadu zdjęć:', error);
+    throw error;
+  } finally {
+    setUploadingImages(false);
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -410,10 +407,24 @@ export function EditProduct() {
                 </div>
               )}
 
-              {/* Input do wyboru nowych plików */}
+              {/* Input do wyboru nowych plików - Z DRAG & DROP */}
               {(formData.images.length + imageFiles.length) < 10 && (
                 <div>
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
+                  <label
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const files = Array.from(e.dataTransfer.files);
+                      if (files.length + imageFiles.length + formData.images.length > 10) {
+                        setError('Możesz dodać maksymalnie 10 zdjęć');
+                        return;
+                      }
+                      setImageFiles([...imageFiles, ...files as File[]]);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                    }}
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition"
+                  >
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       <ImageIcon className="h-10 w-10 text-gray-400 mb-2" />
                       <p className="mb-2 text-sm text-gray-500">

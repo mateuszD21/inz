@@ -229,12 +229,6 @@ export function MyTransactions() {
               Zarządzaj swoimi zakupami i sprzedażą
             </p>
           </div>
-          <Link to="/wiadomosci">
-            <Button variant="outline" className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5" />
-              Wiadomości
-            </Button>
-          </Link>
         </div>
 
         {/* Tabs */}

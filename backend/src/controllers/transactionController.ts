@@ -62,7 +62,7 @@ export const createTransaction = async (req: Request, res: Response) => {
 
     if (existingTransaction) {
       return res.status(400).json({ 
-        error: 'Masz już aktywną transakcję dla tego produktu',
+        error: 'Sprzedający już został powiadomiony',
         transaction: existingTransaction 
       });
     }

@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { Upload, X, MapPin, Loader2 } from 'lucide-react';
+import { Upload, X, Loader2 } from 'lucide-react';
 import { PaymentModal } from '../components/PaymentModal';
 import { geocodeLocationWithFallback } from '../services/geocoding';
 
@@ -81,40 +81,6 @@ export function AddProduct() {
   const removeImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const getCurrentLocation = () => {
-    setLoadingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        setFormData((prev) => ({ ...prev, latitude, longitude }));
-
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
-          );
-          const data = await response.json();
-          const location =
-            data.address.city ||
-            data.address.town ||
-            data.address.village ||
-            data.address.county ||
-            'Nieznana lokalizacja';
-          setFormData((prev) => ({ ...prev, location }));
-        } catch (error) {
-          console.error('Błąd podczas pobierania lokalizacji:', error);
-          setFormData((prev) => ({ ...prev, location: 'Nieznana lokalizacja' }));
-        } finally {
-          setLoadingLocation(false);
-        }
-      },
-      (error) => {
-        console.error('Błąd geolokalizacji:', error);
-        alert('Nie udało się pobrać lokalizacji');
-        setLoadingLocation(false);
-      }
-    );
   };
 
   const validateForm = () => {
@@ -292,27 +258,13 @@ export function AddProduct() {
             {/* Lokalizacja */}
             <div>
               <Label htmlFor="location">Lokalizacja *</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  placeholder="Wpisz lokalizację"
-                  className={errors.location ? 'border-red-500' : ''}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={getCurrentLocation}
-                  disabled={loadingLocation}
-                >
-                  {loadingLocation ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <MapPin className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) => handleInputChange('location', e.target.value)}
+                placeholder="Wpisz lokalizację (np. Warszawa, Kraków)"
+                className={errors.location ? 'border-red-500' : ''}
+              />
               {errors.location && <p className="text-sm text-red-500 mt-1">{errors.location}</p>}
               <p className="text-xs text-gray-500 mt-1">
                 Wpisz miasto (np. Warszawa, Lublin) - zostanie automatycznie skonwertowane na współrzędne GPS
@@ -325,6 +277,25 @@ export function AddProduct() {
               <div className="mt-2">
                 <label
                   htmlFor="images"
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const files = Array.from(e.dataTransfer.files);
+                    if (files.length + images.length > 10) {
+                      alert('Możesz dodać maksymalnie 10 zdjęć');
+                      return;
+                    }
+                    setImages((prev) => [...prev, ...files as File[]]);
+                    files.forEach((file) => {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setImagePreviews((prev) => [...prev, reader.result as string]);
+                      };
+                      reader.readAsDataURL(file);
+                    });
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                  }}
                   className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition ${
                     errors.images ? 'border-red-500' : 'border-gray-300'
                   }`}
@@ -388,7 +359,7 @@ export function AddProduct() {
                 {loadingLocation ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Pobieranie lokalizacji...
+                    Przetwarzanie...
                   </>
                 ) : (
                   'Przejdź do płatności (10 zł)'
